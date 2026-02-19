@@ -236,31 +236,57 @@ def upload_pdf():
     cursor = conn.cursor()
 
     try:
-        cursor.execute(
-            """
-            INSERT INTO courses (
-                class_id, title, instructor, location, course_type, cost,
-                learning_objectives, provided_materials, skills, description, filename, pdf_url
+        if DATABASE_URL:
+            cursor.execute(
+                """
+                INSERT INTO courses (
+                    class_id, title, instructor, location, course_type, cost,
+                    learning_objectives, provided_materials, skills, description, filename, pdf_url
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """,
+                (
+                    course_data.get("class_id"),
+                    course_data.get("title"),
+                    course_data.get("instructor"),
+                    course_data.get("location"),
+                    course_data.get("course_type"),
+                    course_data.get("cost"),
+                    course_data.get("learning_objectives"),
+                    course_data.get("provided_materials"),
+                    course_data.get("skills"),
+                    course_data.get("description"),
+                    course_data.get("filename"),
+                    course_data.get("pdf_url"),
+                ),
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """,
-            (
-                course_data.get("class_id"),
-                course_data.get("title"),
-                course_data.get("instructor"),
-                course_data.get("location"),
-                course_data.get("course_type"),
-                course_data.get("cost"),
-                course_data.get("learning_objectives"),
-                course_data.get("provided_materials"),
-                course_data.get("skills"),
-                course_data.get("description"),
-                course_data.get("filename"),
-                course_data.get("pdf_url"),
-            ),
-        )
-        course_id = cursor.fetchone()[0]
+            course_id = cursor.fetchone()[0]
+        else:
+            cursor.execute(
+                """
+                INSERT INTO courses (
+                    class_id, title, instructor, location, course_type, cost,
+                    learning_objectives, provided_materials, skills, description, filename, pdf_url
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    course_data.get("class_id"),
+                    course_data.get("title"),
+                    course_data.get("instructor"),
+                    course_data.get("location"),
+                    course_data.get("course_type"),
+                    course_data.get("cost"),
+                    course_data.get("learning_objectives"),
+                    course_data.get("provided_materials"),
+                    course_data.get("skills"),
+                    course_data.get("description"),
+                    course_data.get("filename"),
+                    course_data.get("pdf_url"),
+                ),
+            )
+            course_id = cursor.lastrowid
         conn.commit()
         conn.close()
 
