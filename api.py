@@ -48,6 +48,18 @@ def get_db_connection():
     return conn
 
 
+def extract_returning_id(row):
+    """Extract inserted id from tuple-like or dict-like RETURNING rows."""
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row.get("id")
+    try:
+        return row[0]
+    except (KeyError, IndexError, TypeError):
+        return None
+
+
 def upload_to_gcs(file_data, filename):
     """Upload file to Google Cloud Storage"""
     if not GCS_BUCKET_NAME:
@@ -282,7 +294,7 @@ def upload_pdf():
                     course_data.get("pdf_url"),
                 ),
             )
-            course_id = cursor.fetchone()[0]
+            course_id = extract_returning_id(cursor.fetchone())
         else:
             cursor.execute(
                 """
@@ -320,6 +332,7 @@ def upload_pdf():
             }
         ), 201
     except Exception as e:
+        app.logger.exception("Failed to create course from upload")
         conn.close()
         return jsonify({"error": str(e)}), 400
 
@@ -364,7 +377,7 @@ def create_course():
                     filename,
                 ),
             )
-            course_id = cursor.fetchone()[0]
+            course_id = extract_returning_id(cursor.fetchone())
         else:
             cursor.execute(
                 """
@@ -394,6 +407,7 @@ def create_course():
 
         return jsonify({"id": course_id, "message": "Course created"}), 201
     except Exception as e:
+        app.logger.exception("Failed to create manual course")
         conn.close()
         return jsonify({"error": str(e)}), 400
 
