@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+.env
+.env.*
+*.log
+.ruff_cache/
+.git/
+credentials.json
+gcs-key.json

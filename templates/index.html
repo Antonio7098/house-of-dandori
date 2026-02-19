@@ -40,11 +40,34 @@
             font-size: 14px;
         }
         .search-bar button:hover { background: #0056b3; }
-        .add-btn {
-            background: #28a745 !important;
-            margin-left: 10px;
+        .upload-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .add-btn:hover { background: #218838 !important; }
+        .upload-section h3 { margin-bottom: 15px; color: #333; }
+        .upload-section input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .upload-section button {
+            padding: 10px 20px;
+            background: #6f42c1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .upload-section button:hover { background: #5a32a3; }
+        .upload-section button:disabled { background: #ccc; cursor: not-allowed; }
+        .upload-status { margin-top: 10px; color: #666; }
+        .upload-status.success { color: #28a745; }
+        .upload-status.error { color: #dc3545; }
         
         .course-grid {
             display: grid;
@@ -162,6 +185,13 @@
 <body>
     <div class="container">
         <h1>🎓 School of Dandori - Course Manager</h1>
+        
+        <div class="upload-section">
+            <h3>📤 Upload PDFs</h3>
+            <input type="file" id="pdfInput" accept=".pdf" multiple>
+            <button onclick="uploadPDFs()" id="uploadBtn">Upload & Process</button>
+            <div id="uploadStatus" class="upload-status"></div>
+        </div>
         
         <div class="search-bar">
             <input type="text" id="searchInput" placeholder="Search courses...">
@@ -418,6 +448,60 @@
         document.getElementById('searchInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') searchCourses();
         });
+        
+        async function uploadPDFs() {
+            const input = document.getElementById('pdfInput');
+            const files = input.files;
+            const status = document.getElementById('uploadStatus');
+            const btn = document.getElementById('uploadBtn');
+            
+            if (files.length === 0) {
+                status.textContent = 'Please select at least one PDF file';
+                status.className = 'upload-status error';
+                return;
+            }
+            
+            btn.disabled = true;
+            status.textContent = `Uploading ${files.length} file(s)...`;
+            status.className = 'upload-status';
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                        console.error(`Error uploading ${file.name}`);
+                    }
+                } catch (error) {
+                    errorCount++;
+                    console.error(`Error uploading ${file.name}:`, error);
+                }
+            }
+            
+            if (errorCount === 0) {
+                status.textContent = `Successfully uploaded ${successCount} file(s)!`;
+                status.className = 'upload-status success';
+                input.value = '';
+                loadCourses();
+            } else {
+                status.textContent = `Uploaded ${successCount}, failed ${errorCount}`;
+                status.className = 'upload-status error';
+            }
+            
+            btn.disabled = false;
+        }
         
         loadCourses();
     </script>
