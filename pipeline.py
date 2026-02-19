@@ -10,6 +10,10 @@ import sqlite3
 import psycopg2
 from pathlib import Path
 from typing import Dict, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import PyPDF2
 
 

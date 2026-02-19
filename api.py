@@ -11,6 +11,9 @@ import sqlite3
 import uuid
 import tempfile
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import psycopg2
 from psycopg2 import extras
@@ -38,7 +41,7 @@ def allowed_file(filename):
 def get_db_connection():
     """Create database connection - supports both SQLite (local) and PostgreSQL (Supabase)"""
     if DATABASE_URL:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=extras.RealDictCursor)
     else:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -152,6 +155,9 @@ def get_courses():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    use_postgres = bool(DATABASE_URL)
+    placeholder = "%s" if use_postgres else "?"
+
     query = """
         SELECT id, class_id, title, instructor, location, course_type, cost, 
                skills, filename, pdf_url, created_at, updated_at
@@ -161,21 +167,26 @@ def get_courses():
     params = []
 
     if search:
-        query += " AND (title ILIKE %s OR class_id ILIKE %s OR description ILIKE %s)"
+        if use_postgres:
+            query += (
+                " AND (title ILIKE %s OR class_id ILIKE %s OR description ILIKE %s)"
+            )
+        else:
+            query += " AND (title LIKE ? OR class_id LIKE ? OR description LIKE ?)"
         params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
 
     if location:
-        query += " AND location ILIKE %s"
+        query += f" AND location LIKE {placeholder}"
         params.append(f"%{location}%")
 
     if course_type:
-        query += " AND course_type ILIKE %s"
+        query += f" AND course_type LIKE {placeholder}"
         params.append(f"%{course_type}%")
 
     query += " ORDER BY class_id"
 
     cursor.execute(query, params)
-    courses = [dict(row) for row in cursor.fetchall()]
+    courses = list(cursor.fetchall())
     conn.close()
 
     return jsonify({"count": len(courses), "courses": courses})
@@ -187,7 +198,10 @@ def get_course(course_id):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM courses WHERE id = %s", (course_id,))
+    use_postgres = bool(DATABASE_URL)
+    placeholder = "%s" if use_postgres else "?"
+
+    cursor.execute(f"SELECT * FROM courses WHERE id = {placeholder}", (course_id,))
 
     course = cursor.fetchone()
     conn.close()
