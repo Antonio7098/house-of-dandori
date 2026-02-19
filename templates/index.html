@@ -113,6 +113,8 @@
         .view-btn:hover { background: #0056b3; }
         .edit-btn { background: #ffc107; color: #333; }
         .edit-btn:hover { background: #e0a800; }
+        .delete-btn { background: #dc3545; color: white; }
+        .delete-btn:hover { background: #c82333; }
         
         .modal {
             display: none;
@@ -312,6 +314,7 @@
                     <div class="actions">
                         <button class="view-btn" onclick="viewCourse(${course.id})">View Details</button>
                         <button class="edit-btn" onclick="editCourse(${course.id})">Edit</button>
+                        <button class="delete-btn" onclick="deleteCourse(${course.id}, '${course.title.replace(/'/g, "\\'")}')">Delete</button>
                     </div>
                 </div>
             `).join('');
@@ -449,6 +452,28 @@
         
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
+        }
+        
+        async function deleteCourse(id, title) {
+            if (!confirm(`Are you sure you want to delete "${title}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/courses/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    loadCourses();
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    alert(errorData.error || 'Error deleting course');
+                }
+            } catch (error) {
+                console.error('Error deleting course:', error);
+                alert('Error deleting course');
+            }
         }
         
         window.onclick = function(event) {
