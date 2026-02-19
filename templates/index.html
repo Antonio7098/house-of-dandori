@@ -427,7 +427,8 @@
                     closeModal('editModal');
                     loadCourses();
                 } else {
-                    alert('Error saving course');
+                    const errorData = await response.json().catch(() => ({}));
+                    alert(errorData.error || 'Error saving course');
                 }
             } catch (error) {
                 console.error('Error saving course:', error);

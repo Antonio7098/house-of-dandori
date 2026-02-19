@@ -324,32 +324,64 @@ def create_course():
 
     conn = get_db_connection()
     cursor = conn.cursor()
+    use_postgres = bool(DATABASE_URL)
+
+    class_id = (data.get("class_id") or "").strip()
+    if class_id:
+        filename = f"{class_id}_{uuid.uuid4().hex[:8]}.pdf"
+    else:
+        filename = f"manual_{uuid.uuid4().hex}.pdf"
 
     try:
-        cursor.execute(
-            """
-            INSERT INTO courses (
-                class_id, title, instructor, location, course_type, cost,
-                learning_objectives, provided_materials, skills, description, filename
+        if use_postgres:
+            cursor.execute(
+                """
+                INSERT INTO courses (
+                    class_id, title, instructor, location, course_type, cost,
+                    learning_objectives, provided_materials, skills, description, filename
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """,
+                (
+                    class_id or None,
+                    data.get("title"),
+                    data.get("instructor"),
+                    data.get("location"),
+                    data.get("course_type"),
+                    data.get("cost"),
+                    data.get("learning_objectives"),
+                    data.get("provided_materials"),
+                    data.get("skills"),
+                    data.get("description"),
+                    filename,
+                ),
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """,
-            (
-                data.get("class_id"),
-                data.get("title"),
-                data.get("instructor"),
-                data.get("location"),
-                data.get("course_type"),
-                data.get("cost"),
-                data.get("learning_objectives"),
-                data.get("provided_materials"),
-                data.get("skills"),
-                data.get("description"),
-                f"{data.get('class_id', 'manual')}.pdf",
-            ),
-        )
-        course_id = cursor.fetchone()[0]
+            course_id = cursor.fetchone()[0]
+        else:
+            cursor.execute(
+                """
+                INSERT INTO courses (
+                    class_id, title, instructor, location, course_type, cost,
+                    learning_objectives, provided_materials, skills, description, filename
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    class_id or None,
+                    data.get("title"),
+                    data.get("instructor"),
+                    data.get("location"),
+                    data.get("course_type"),
+                    data.get("cost"),
+                    data.get("learning_objectives"),
+                    data.get("provided_materials"),
+                    data.get("skills"),
+                    data.get("description"),
+                    filename,
+                ),
+            )
+            course_id = cursor.lastrowid
         conn.commit()
         conn.close()
 
