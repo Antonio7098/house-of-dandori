@@ -152,44 +152,51 @@ def get_courses():
     location = request.args.get("location", "")
     course_type = request.args.get("course_type", "")
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-    use_postgres = bool(DATABASE_URL)
-    placeholder = "%s" if use_postgres else "?"
+        use_postgres = bool(DATABASE_URL)
+        placeholder = "%s" if use_postgres else "?"
 
-    query = """
-        SELECT id, class_id, title, instructor, location, course_type, cost, 
-               skills, filename, pdf_url, created_at, updated_at
-        FROM courses
-        WHERE 1=1
-    """
-    params = []
+        query = """
+            SELECT id, class_id, title, instructor, location, course_type, cost, 
+                   skills, filename, pdf_url, created_at, updated_at
+            FROM courses
+            WHERE 1=1
+        """
+        params = []
 
-    if search:
-        if use_postgres:
-            query += (
-                " AND (title ILIKE %s OR class_id ILIKE %s OR description ILIKE %s)"
-            )
-        else:
-            query += " AND (title LIKE ? OR class_id LIKE ? OR description LIKE ?)"
-        params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+        if search:
+            if use_postgres:
+                query += (
+                    " AND (title ILIKE %s OR class_id ILIKE %s OR description ILIKE %s)"
+                )
+            else:
+                query += " AND (title LIKE ? OR class_id LIKE ? OR description LIKE ?)"
+            params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
 
-    if location:
-        query += f" AND location LIKE {placeholder}"
-        params.append(f"%{location}%")
+        if location:
+            query += f" AND location LIKE {placeholder}"
+            params.append(f"%{location}%")
 
-    if course_type:
-        query += f" AND course_type LIKE {placeholder}"
-        params.append(f"%{course_type}%")
+        if course_type:
+            query += f" AND course_type LIKE {placeholder}"
+            params.append(f"%{course_type}%")
 
-    query += " ORDER BY class_id"
+        query += " ORDER BY class_id"
 
-    cursor.execute(query, params)
-    courses = list(cursor.fetchall())
-    conn.close()
+        cursor.execute(query, params)
+        courses = list(cursor.fetchall())
 
-    return jsonify({"count": len(courses), "courses": courses})
+        return jsonify({"count": len(courses), "courses": courses})
+    except Exception as e:
+        app.logger.exception("Failed to fetch courses")
+        return jsonify({"error": f"Failed to fetch courses: {str(e)}"}), 500
+    finally:
+        if conn:
+            conn.close()
 
 
 @app.route("/api/courses/<int:course_id>", methods=["GET"])

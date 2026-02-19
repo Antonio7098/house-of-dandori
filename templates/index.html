@@ -274,7 +274,18 @@
         async function loadCourses() {
             try {
                 const response = await fetch('/api/courses');
-                const data = await response.json();
+                const bodyText = await response.text();
+                let data = {};
+                try {
+                    data = JSON.parse(bodyText);
+                } catch (parseError) {
+                    throw new Error(`Non-JSON response (${response.status}): ${bodyText.slice(0, 120)}`);
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.error || `Failed to load courses (${response.status})`);
+                }
+
                 allCourses = data.courses;
                 displayCourses(allCourses);
                 populateFilters(allCourses);
