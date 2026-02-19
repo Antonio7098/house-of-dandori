@@ -460,5 +460,30 @@ def update_course(course_id):
         return jsonify({"error": str(e)}), 400
 
 
+@app.route("/api/courses/<int:course_id>", methods=["DELETE"])
+def delete_course(course_id):
+    """Delete a course"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        use_postgres = bool(DATABASE_URL)
+        placeholder = "%s" if use_postgres else "?"
+
+        cursor.execute(f"SELECT id FROM courses WHERE id = {placeholder}", (course_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({"error": "Course not found"}), 404
+
+        cursor.execute(f"DELETE FROM courses WHERE id = {placeholder}", (course_id,))
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": "Course deleted"}), 200
+    except Exception as e:
+        conn.close()
+        return jsonify({"error": str(e)}), 400
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
