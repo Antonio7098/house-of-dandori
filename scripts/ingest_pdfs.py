@@ -16,16 +16,6 @@ from pathlib import Path
 import requests
 
 
-def upload_batch(api_url: str, pdf_files: list):
-    """Upload multiple PDFs in a single request."""
-    form_data = {}
-    for f in pdf_files:
-        form_data["files"] = (f.name, open(f, "rb"), "application/pdf")
-
-    response = requests.post(f"{api_url}/api/upload/batch", files=form_data)
-    return response
-
-
 def ingest_pdfs(pdf_dir: str, api_url: str = "http://localhost:5000"):
     pdf_path = Path(pdf_dir)
 
@@ -46,18 +36,18 @@ def ingest_pdfs(pdf_dir: str, api_url: str = "http://localhost:5000"):
     print(f"Found {len(pdf_files)} PDF files to ingest")
     print(f"Uploading to {api_url}...\n")
 
-    # Close the file handles after upload
-    files_to_close = []
-    form_data = {}
+    # Build files list with open file handles
+    file_handles = []
+    files = []
     for f in pdf_files:
         fh = open(f, "rb")
-        files_to_close.append(fh)
-        form_data["files"] = (f.name, fh, "application/pdf")
+        file_handles.append(fh)
+        files.append(("files", (f.name, fh, "application/pdf")))
 
     try:
-        response = requests.post(f"{api_url}/api/upload/batch", files=form_data)
+        response = requests.post(f"{api_url}/api/upload/batch", files=files)
     finally:
-        for fh in files_to_close:
+        for fh in file_handles:
             fh.close()
 
     if response.status_code == 200:

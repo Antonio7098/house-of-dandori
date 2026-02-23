@@ -21,7 +21,7 @@ def allowed_file(filename):
 
 
 def extract_from_pdf(file_data, filename=None):
-    from src.models.extractor import CourseExtractor
+    from src.models import CourseExtractor
 
     extractor = CourseExtractor()
     try:

@@ -7,7 +7,7 @@ from src.api.search import search_bp
 def create_app():
     app = Flask(__name__, template_folder="../../templates")
     app.config["JSON_AS_ASCII"] = False
-    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+    app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB
 
     app.register_blueprint(courses_bp)
     app.register_blueprint(search_bp)
