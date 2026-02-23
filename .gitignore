@@ -4,7 +4,8 @@ __pycache__/
 *.pyo
 *.db
 .env
-.env.*
+.env.local
+.env.docker
 *.log
 .ruff_cache/
 .git/
