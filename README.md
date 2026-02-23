@@ -70,4 +70,4 @@ python3 -m pytest tests/ -v
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (local) |
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | `chroma` |
-| `ENABLE_VECTOR_INDEXING` | Enable startup indexing | `true` |
+| `ENVIRONMENT` | `development` or `production` | `development` |

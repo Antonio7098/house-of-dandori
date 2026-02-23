@@ -9,12 +9,11 @@ search_bp = Blueprint("search", __name__)
 
 @search_bp.route("/api/config", methods=["GET"])
 def get_config():
+    env = os.environ.get("ENVIRONMENT", "development").lower()
     return jsonify(
         {
-            "vectorIndexingEnabled": os.environ.get(
-                "ENABLE_VECTOR_INDEXING", "true"
-            ).lower()
-            == "true"
+            "environment": env,
+            "vectorStoreProvider": os.environ.get("VECTOR_STORE_PROVIDER", "chroma"),
         }
     )
 

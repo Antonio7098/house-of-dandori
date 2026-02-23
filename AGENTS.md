@@ -78,7 +78,7 @@ When adding new features or files:
 | `DATABASE_URL` | Supabase PostgreSQL connection string |
 | `OPENROUTER_API_KEY` | Required for vector embeddings |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` |
-| `ENABLE_VECTOR_INDEXING` | Set to `false` to disable startup indexing (saves memory) |
+| `ENVIRONMENT` | `development` or `production` | `development` |
 
 ### Lazy Loading
 

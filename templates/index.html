@@ -329,17 +329,18 @@
         let totalCount = 0;
         let isLoadingMore = false;
         let currentResults = [];
-        let vectorIndexingEnabled = true;
+        let vectorSearchEnabled = true;
         
         async function loadConfig() {
             try {
                 const response = await fetch('/api/config');
                 const data = await response.json();
-                vectorIndexingEnabled = data.vectorIndexingEnabled;
+                const env = data.environment || 'development';
+                vectorSearchEnabled = env !== 'production';
                 const vectorBtn = document.getElementById('vectorSearchBtn');
-                if (!vectorIndexingEnabled) {
+                if (env === 'production') {
                     vectorBtn.disabled = true;
-                    vectorBtn.setAttribute('data-tooltip', 'Vector indexing is disabled on this server');
+                    vectorBtn.setAttribute('data-tooltip', 'Vector search uses persistent storage in production');
                 }
             } catch (e) {
                 console.error('Failed to load config:', e);

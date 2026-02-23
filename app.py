@@ -15,9 +15,16 @@ app = create_app()
 
 
 def reindex_on_startup():
-    if not os.environ.get("ENABLE_VECTOR_INDEXING", "true").lower() == "true":
-        print("Vector indexing disabled via ENABLE_VECTOR_INDEXING env var")
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+
+    if env == "production":
+        os.environ["VECTOR_STORE_PROVIDER"] = "vertexai"
+        print(
+            "Production mode: using Vertex AI Vector Search (no startup reindex needed)"
+        )
         return
+    else:
+        os.environ["VECTOR_STORE_PROVIDER"] = "chroma"
 
     try:
         conn = get_db_connection()

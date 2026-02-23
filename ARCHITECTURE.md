@@ -138,7 +138,7 @@ CREATE TABLE courses (
 
 ### Lazy Loading
 
-Vector store providers are lazy-loaded to reduce memory usage. Set `ENABLE_VECTOR_INDEXING=false` to skip startup indexing (useful for memory-constrained environments like Cloud Run with limited memory).
+Vector store providers are lazy-loaded to reduce memory usage. In development mode, ChromaDB is used with in-memory storage and reindexes on startup. In production, Vertex AI Vector Search is used with persistent storage (no startup reindex needed).
 
 ---
 
@@ -166,5 +166,5 @@ Vector store providers are lazy-loaded to reduce memory usage. Set `ENABLE_VECTO
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (local) |
 | `DB_PATH` | SQLite database path | `courses.db` |
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
-| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | `chroma` |
-| `ENABLE_VECTOR_INDEXING` | Enable startup indexing | `true` |
+| `ENVIRONMENT` | `development` or `production` | `development` |
+| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
