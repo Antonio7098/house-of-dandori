@@ -33,31 +33,136 @@ Facing challenges with scaling, they've embraced AI to help onboard new instruct
 ## Development Guidelines
 
 ### Before Pushing
-**Always run tests:**
-```bash
-python3 -m pytest tests/ -v
+
+1. **Run tests:**
+   ```bash
+   python3 -m pytest tests/ -v
+   ```
+
+2. **Update documentation** if you've made changes that affect:
+   - API endpoints (update README.md)
+   - Architecture or patterns (update AGENTS.md)
+   - Environment variables (update both README.md and AGENTS.md)
+
+3. **Use conventional commits:**
+   - `feat:` - New feature
+   - `fix:` - Bug fix
+   - `docs:` - Documentation changes
+   - `refactor:` - Code refactoring
+   - `test:` - Adding/updating tests
+   - `chore:` - Maintenance tasks
+   
+   Example: `feat: add vector search endpoint for semantic course matching`
+
+### Project Organization
+
+When adding new features or files:
+- Follow the existing architectural patterns in the codebase
+- Place new routes in appropriate blueprint files
+- Keep the file structure consistent (see below)
+- Consider lazy loading for heavy dependencies
+
+---
+
+## File Structure
+
+```
+.
+├── app.py                    # Application entry point
+├── Dockerfile                # Container configuration
+├── requirements.txt          # Python dependencies
+├── README.md                 # Project documentation
+├── AGENTS.md                # Developer/AI agent guide
+│
+├── src/
+│   ├── api/
+│   │   ├── app.py          # Flask app factory
+│   │   ├── routes.py       # Course CRUD endpoints
+│   │   └── search.py       # Vector search endpoints
+│   │
+│   ├── core/
+│   │   ├── config.py       # Configuration & environment
+│   │   ├── utils.py        # Utility functions
+│   │   └── vector_store/
+│   │       ├── base.py     # Vector store interface
+│   │       ├── chroma.py   # ChromaDB implementation
+│   │       └── vertexai.py # Vertex AI implementation
+│   │
+│   ├── models/
+│   │   ├── database.py     # Database operations
+│   │   └── __init__.py     # Course extraction from PDFs
+│   │
+│   └── services/
+│       └── rag_service.py  # Vector search abstraction
+│
+├── templates/
+│   └── index.html          # Main UI
+│
+└── tests/
+    ├── conftest.py         # Test fixtures
+    └── test_api.py         # API tests
 ```
 
-### Key Files
-- `app.py` - Entry point, runs reindex_on_startup() on boot
-- `src/api/app.py` - Flask app factory
-- `src/api/routes.py` - Course CRUD endpoints
-- `src/api/search.py` - Vector search endpoints
-- `src/services/rag_service.py` - Vector store abstraction
-- `src/core/vector_store/chroma.py` - ChromaDB implementation
-- `src/core/vector_store/vertexai.py` - Vertex AI implementation
-- `src/models/database.py` - Database operations
+---
 
-### Environment Variables
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | Supabase PostgreSQL connection string |
-| `OPENROUTER_API_KEY` | Required for vector embeddings |
-| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` |
-| `ENABLE_VECTOR_INDEXING` | Set to `false` to disable startup indexing (saves memory) |
+## Backend Architecture
 
-### Lazy Loading
-Vector store providers (ChromaDB, Vertex AI) are lazy-loaded to reduce memory usage when vector indexing is disabled. Import them only inside functions, not at module level.
+### Layered Structure
 
-### Testing
-Tests use an in-memory SQLite database via `tests/conftest.py`. The fixture sets `DB_PATH=:memory:` before each test.
+1. **API Layer** (`src/api/`)
+   - Flask blueprints define routes
+   - Handle HTTP requests/responses
+   - Input validation
+
+2. **Service Layer** (`src/services/`)
+   - Business logic abstraction
+   - RAG service handles vector operations
+
+3. **Core Layer** (`src/core/`)
+   - Configuration management
+   - Vector store providers (abstract interface + implementations)
+   - Utility functions
+
+4. **Model Layer** (`src/models/`)
+   - Database operations
+   - Data extraction/transformation
+
+### Key Patterns
+
+- **Blueprint-based routing**: API routes organized in Flask blueprints
+- **Provider pattern**: Vector stores implement a common interface
+- **Factory pattern**: `VectorStoreFactory.create()` instantiates providers
+- **Lazy loading**: Heavy imports inside functions to reduce memory usage
+- **Environment-based config**: Runtime behavior controlled via env vars
+
+### Database
+
+- PostgreSQL (Supabase) for production
+- SQLite for local development
+- `get_db_connection()` handles both based on `DATABASE_URL` env var
+
+### Vector Search
+
+- ChromaDB for local development (in-memory or file-based)
+- Vertex AI Vector Search for production
+- OpenRouter API for embeddings (google/gemini-embedding-001)
+
+---
+
+## Testing
+
+Tests use an in-memory SQLite database via `tests/conftest.py`. The fixture sets `DB_PATH` before each test to ensure isolation.
+
+---
+
+## Mentoring & Learning
+
+When implementing features, feel free to:
+
+1. **Explain the concepts** - Walk through how new components work
+2. **Ask questions** - Test understanding with probing questions
+3. **Suggest extensions** - Encourage trying variations or additions
+4. **Discuss tradeoffs** - Analyze pros/cons of different approaches
+5. **Foster critical thinking** - Challenge assumptions and explore alternatives
+
+This helps build deep understanding of the codebase and software engineering principles.
