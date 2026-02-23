@@ -3,7 +3,6 @@ from flask import Blueprint, jsonify, request
 
 from src.core.utils import parse_json_fields
 from src.models.database import get_db_connection
-from src.services.rag_service import get_rag_service
 
 search_bp = Blueprint("search", __name__)
 
@@ -26,6 +25,8 @@ rag_service = None
 def get_rag():
     global rag_service
     if rag_service is None:
+        from src.services.rag_service import get_rag_service
+
         provider = request.args.get("provider")
         rag_service = get_rag_service(provider)
     return rag_service

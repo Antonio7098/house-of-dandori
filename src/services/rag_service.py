@@ -1,24 +1,32 @@
 import os
 
 from src.core.vector_store.base import VectorStoreProvider
-from src.core.vector_store.chroma import ChromaDBProvider
-from src.core.vector_store.vertexai import VertexAIVectorSearchProvider
 
 
 class VectorStoreFactory:
-    PROVIDERS = {
-        "chroma": ChromaDBProvider,
-        "vertexai": VertexAIVectorSearchProvider,
-    }
+    _providers = None
+
+    @classmethod
+    def _get_providers(cls):
+        if cls._providers is None:
+            from src.core.vector_store.chroma import ChromaDBProvider
+            from src.core.vector_store.vertexai import VertexAIVectorSearchProvider
+
+            cls._providers = {
+                "chroma": ChromaDBProvider,
+                "vertexai": VertexAIVectorSearchProvider,
+            }
+        return cls._providers
 
     @classmethod
     def create(cls, provider: str = None, **kwargs) -> VectorStoreProvider:
         provider = provider or os.environ.get("VECTOR_STORE_PROVIDER", "chroma")
-        if provider not in cls.PROVIDERS:
+        providers = cls._get_providers()
+        if provider not in providers:
             raise ValueError(
-                f"Unknown provider: {provider}. Available: {list(cls.PROVIDERS.keys())}"
+                f"Unknown provider: {provider}. Available: {list(providers.keys())}"
             )
-        return cls.PROVIDERS[provider](**kwargs)
+        return providers[provider](**kwargs)
 
 
 class RAGService:
