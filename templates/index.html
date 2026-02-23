@@ -30,6 +30,7 @@
         }
         .search-bar input { width: 300px; }
         .search-bar select { width: 200px; }
+        
         .search-bar button {
             padding: 10px 20px;
             background: #007bff;
@@ -182,6 +183,27 @@
             color: #999;
             font-size: 18px;
         }
+        .load-more-container {
+            text-align: center;
+            padding: 20px;
+        }
+        .load-more-btn {
+            padding: 12px 30px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .load-more-btn:hover { background: #0056b3; }
+        .load-more-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .pagination-info {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -204,10 +226,16 @@
                 <option value="">All Types</option>
             </select>
             <button onclick="searchCourses()">Search</button>
+            <button onclick="semanticSearch()" style="background: #4caf50;">Vector Search</button>
             <button class="add-btn" onclick="openAddModal()">+ Add Course</button>
         </div>
         
         <div class="course-grid" id="courseGrid"></div>
+        
+        <div class="pagination-info" id="paginationInfo"></div>
+        <div class="load-more-container" id="loadMoreContainer">
+            <button class="load-more-btn" id="loadMoreBtn" onclick="loadMore()">Load More</button>
+        </div>
     </div>
     
     <!-- View Modal -->
@@ -272,6 +300,12 @@
 
     <script>
         let allCourses = [];
+        let currentPage = 1;
+        let currentLimit = 20;
+        let totalPages = 1;
+        let totalCount = 0;
+        let isLoadingMore = false;
+        let currentResults = [];
         
         async function loadCourses() {
             try {
@@ -289,7 +323,9 @@
                 }
 
                 allCourses = data.courses;
-                displayCourses(allCourses);
+                isVectorSearch = false;
+                displayCourses(data.courses, false);
+                updatePaginationControls(data.count, data.page, data.total_pages);
                 populateFilters(allCourses);
             } catch (error) {
                 console.error('Error loading courses:', error);
@@ -339,6 +375,8 @@
             const type = document.getElementById('typeFilter').value;
             
             const params = new URLSearchParams();
+            params.append('page', 1);
+            params.append('limit', currentLimit);
             if (search) params.append('search', search);
             if (location) params.append('location', location);
             if (type) params.append('course_type', type);
@@ -346,7 +384,9 @@
             try {
                 const response = await fetch(`/api/courses?${params}`);
                 const data = await response.json();
-                displayCourses(data.courses);
+                isVectorSearch = false;
+                displayCourses(data.courses, false);
+                updatePaginationControls(data.count, data.page, data.total_pages);
             } catch (error) {
                 console.error('Error searching courses:', error);
             }
@@ -485,6 +525,157 @@
         document.getElementById('searchInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') searchCourses();
         });
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchCourses();
+        });
+
+        let isVectorSearch = false;
+
+        async function semanticSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            const grid = document.getElementById('courseGrid');
+            grid.innerHTML = '<p style="color: #666; padding: 20px;">Searching...</p>';
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&page=1&n=${currentLimit}`);
+                const data = await response.json();
+
+                isVectorSearch = true;
+                if (data.results && data.results.length > 0) {
+                    displayCourses(data.results, true);
+                    updatePaginationControls(data.count, data.page, data.total_pages);
+                } else {
+                    grid.innerHTML = '<div class="no-results">No results found</div>';
+                    updatePaginationControls(0, 1, 1);
+                }
+            } catch (error) {
+                console.error('Semantic search error:', error);
+                grid.innerHTML = '<div class="no-results">Search failed. Please try again.</div>';
+                updatePaginationControls(0, 1, 1);
+            }
+        }
+
+        function displayCourses(courses, isVector = false, append = false) {
+            const grid = document.getElementById('courseGrid');
+            
+            if (!append) {
+                currentResults = courses;
+            } else {
+                currentResults = [...currentResults, ...courses];
+            }
+            
+            if (currentResults.length === 0) {
+                grid.innerHTML = '<div class="no-results">No courses found</div>';
+                updatePaginationControls(0, 1, 1);
+                return;
+            }
+            
+            grid.innerHTML = currentResults.map(course => `
+                <div class="course-card" style="${isVector ? 'border-left: 4px solid #4caf50;' : ''}">
+                    <div class="class-id">${course.class_id || 'N/A'}</div>
+                    <h3>${course.title}</h3>
+                    <div class="info"><strong>Instructor:</strong> ${course.instructor || 'N/A'}</div>
+                    <div class="info"><strong>Location:</strong> ${course.location || 'N/A'}</div>
+                    <div class="info"><strong>Type:</strong> ${course.course_type || 'N/A'}</div>
+                    <div class="cost">${course.cost || 'N/A'}</div>
+                    ${isVector && course._distance ? `<div class="info" style="color: #4caf50; font-weight: bold;">Relevance: ${((1 - course._distance) * 100).toFixed(0)}%</div>` : ''}
+                    <div class="actions">
+                        <button class="view-btn" onclick="viewCourse(${course.id})">View Details</button>
+                        <button class="edit-btn" onclick="editCourse(${course.id})">Edit</button>
+                        <button class="delete-btn" onclick="deleteCourse(${course.id}, '${course.title.replace(/'/g, "\\'")}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updatePaginationControls(count, page, total) {
+            totalCount = count;
+            currentPage = page;
+            totalPages = total;
+            
+            const infoDiv = document.getElementById('paginationInfo');
+            const container = document.getElementById('loadMoreContainer');
+            const btn = document.getElementById('loadMoreBtn');
+            
+            if (count === 0) {
+                infoDiv.innerHTML = '';
+                container.style.display = 'none';
+                return;
+            }
+            
+            const start = (page - 1) * currentLimit + 1;
+            const end = Math.min(page * currentLimit, count);
+            infoDiv.innerHTML = `Showing ${start}-${end} of ${count} courses`;
+            
+            if (page < total) {
+                container.style.display = 'block';
+                btn.disabled = isLoadingMore;
+                btn.textContent = isLoadingMore ? 'Loading...' : 'Load More';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function loadMore() {
+            if (isVectorSearch) {
+                loadMoreVector();
+            } else {
+                loadMoreNormal();
+            }
+        }
+
+        async function loadMoreNormal() {
+            isLoadingMore = true;
+            updatePaginationControls(totalCount, currentPage, totalPages);
+            
+            const search = document.getElementById('searchInput').value;
+            const location = document.getElementById('locationFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            
+            const params = new URLSearchParams();
+            params.append('page', currentPage + 1);
+            params.append('limit', currentLimit);
+            if (search) params.append('search', search);
+            if (location) params.append('location', location);
+            if (type) params.append('course_type', type);
+            
+            try {
+                const response = await fetch(`/api/courses?${params}`);
+                const data = await response.json();
+                displayCourses(data.courses, false, true);
+                updatePaginationControls(data.count, data.page, data.total_pages);
+            } catch (error) {
+                console.error('Error loading more courses:', error);
+            }
+            
+            isLoadingMore = false;
+            updatePaginationControls(totalCount, currentPage, totalPages);
+        }
+
+        async function loadMoreVector() {
+            isLoadingMore = true;
+            updatePaginationControls(totalCount, currentPage, totalPages);
+            
+            const query = document.getElementById('searchInput').value.trim();
+            
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&page=${currentPage + 1}&n=${currentLimit}`);
+                const data = await response.json();
+                displayCourses(data.results, true, true);
+                updatePaginationControls(data.count, data.page, data.total_pages);
+            } catch (error) {
+                console.error('Error loading more results:', error);
+            }
+            
+            isLoadingMore = false;
+            updatePaginationControls(totalCount, currentPage, totalPages);
+        }
         
         async function uploadPDFs() {
             const input = document.getElementById('pdfInput');
@@ -531,6 +722,7 @@
                 status.textContent = `Successfully uploaded ${successCount} file(s)!`;
                 status.className = 'upload-status success';
                 input.value = '';
+                isVectorSearch = false;
                 loadCourses();
             } else {
                 status.textContent = `Uploaded ${successCount}, failed ${errorCount}`;

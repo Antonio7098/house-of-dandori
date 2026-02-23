@@ -234,10 +234,13 @@ def index():
 
 @app.route("/api/courses", methods=["GET"])
 def get_courses():
-    """Get all courses with optional filtering"""
+    """Get all courses with optional filtering and pagination"""
     search = request.args.get("search", "")
     location = request.args.get("location", "")
     course_type = request.args.get("course_type", "")
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 20))
+    offset = (page - 1) * limit
 
     conn = None
     try:
@@ -253,34 +256,103 @@ def get_courses():
             FROM courses
             WHERE 1=1
         """
+        count_query = "SELECT COUNT(*) FROM courses WHERE 1=1"
         params = []
+        count_params = []
 
         if search:
             if use_postgres:
                 query += (
                     " AND (title ILIKE %s OR class_id ILIKE %s OR description ILIKE %s)"
                 )
+                count_query += (
+                    " AND (title ILIKE %s OR class_id ILIKE %s OR description ILIKE %s)"
+                )
             else:
                 query += " AND (title LIKE ? OR class_id LIKE ? OR description LIKE ?)"
+                count_query += (
+                    " AND (title LIKE ? OR class_id LIKE ? OR description LIKE ?)"
+                )
             params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+            count_params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
 
         if location:
             query += f" AND location LIKE {placeholder}"
+            count_query += f" AND location LIKE {placeholder}"
             params.append(f"%{location}%")
+            count_params.append(f"%{location}%")
 
         if course_type:
             query += f" AND course_type LIKE {placeholder}"
+            count_query += f" AND course_type LIKE {placeholder}"
             params.append(f"%{course_type}%")
+            count_params.append(f"%{course_type}%")
 
-        query += " ORDER BY class_id"
+        cursor.execute(count_query, count_params)
+        count_result = cursor.fetchone()
+        total = (
+            count_result[0]
+            if isinstance(count_result, (tuple, list))
+            else count_result["count"]
+        )
+
+        query += f" ORDER BY class_id LIMIT {placeholder} OFFSET {placeholder}"
+        params.extend([limit, offset])
 
         cursor.execute(query, params)
         courses = [parse_json_fields(c) for c in cursor.fetchall()]
 
-        return jsonify({"count": len(courses), "courses": courses})
+        return jsonify(
+            {
+                "count": total,
+                "page": page,
+                "limit": limit,
+                "total_pages": (total + limit - 1) // limit,
+                "courses": courses,
+            }
+        )
     except Exception as e:
         app.logger.exception("Failed to fetch courses")
         return jsonify({"error": f"Failed to fetch courses: {str(e)}"}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route("/api/courses/bulk", methods=["POST"])
+def get_courses_bulk():
+    """Get multiple courses by IDs"""
+    data = request.get_json()
+    if not data or not data.get("ids"):
+        return jsonify({"error": "ids array is required"}), 400
+
+    course_ids = data["ids"]
+    if not isinstance(course_ids, list):
+        return jsonify({"error": "ids must be an array"}), 400
+
+    if len(course_ids) > 100:
+        return jsonify({"error": "Maximum 100 IDs allowed"}), 400
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        use_postgres = bool(DATABASE_URL)
+        placeholder = "%s" if use_postgres else "?"
+
+        placeholders = ",".join([placeholder] * len(course_ids))
+        cursor.execute(
+            f"SELECT * FROM courses WHERE id IN ({placeholders})", course_ids
+        )
+        courses = [parse_json_fields(c) for c in cursor.fetchall()]
+
+        course_map = {c["id"]: c for c in courses}
+        ordered = [course_map[cid] for cid in course_ids if cid in course_map]
+
+        return jsonify({"courses": ordered})
+    except Exception as e:
+        app.logger.exception("Failed to fetch bulk courses")
+        return jsonify({"error": str(e)}), 500
     finally:
         if conn:
             conn.close()
@@ -310,6 +382,144 @@ def get_course(course_id):
 def health():
     """Health check endpoint"""
     return jsonify({"status": "healthy"})
+
+
+rag_service = None
+
+
+def get_rag_service():
+    global rag_service
+    if rag_service is None:
+        from rag_service import get_rag_service as _get_rag
+
+        provider = request.args.get("provider")
+        rag_service = _get_rag(provider)
+    return rag_service
+
+
+@app.route("/api/search", methods=["GET"])
+def semantic_search():
+    """Semantic search using vector store"""
+    query = request.args.get("q", "")
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("n", 10))
+    offset = (page - 1) * limit
+
+    if not query:
+        return jsonify({"error": "Query parameter 'q' is required"}), 400
+
+    try:
+        rag = get_rag_service()
+        results = rag.search(query, n_results=limit + offset)
+
+        course_ids = []
+        if results.get("ids") and results["ids"][0]:
+            course_ids = [int(id.split("_")[0]) for id in results["ids"][0]]
+
+        total = len(course_ids)
+        paginated_ids = course_ids[offset : offset + limit]
+
+        if not paginated_ids:
+            return jsonify(
+                {
+                    "results": [],
+                    "count": total,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": (total + limit - 1) // limit,
+                }
+            )
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        use_postgres = bool(DATABASE_URL)
+        placeholder = "%s" if use_postgres else "?"
+
+        placeholders = ",".join([placeholder] * len(paginated_ids))
+        cursor.execute(
+            f"SELECT * FROM courses WHERE id IN ({placeholders})", paginated_ids
+        )
+        courses = {c["id"]: parse_json_fields(c) for c in cursor.fetchall()}
+        conn.close()
+
+        ordered_results = []
+        for i, course_id in enumerate(paginated_ids):
+            if course_id in courses:
+                course = courses[course_id]
+                real_idx = offset + i
+                course["_distance"] = (
+                    results["distances"][0][real_idx]
+                    if results.get("distances")
+                    else None
+                )
+                ordered_results.append(course)
+
+        return jsonify(
+            {
+                "results": ordered_results,
+                "count": total,
+                "page": page,
+                "limit": limit,
+                "total_pages": (total + limit - 1) // limit,
+            }
+        )
+
+    except Exception as e:
+        app.logger.exception("Semantic search failed")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/index", methods=["POST"])
+def index_courses():
+    """Index all courses into the vector store"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM courses")
+        courses = [parse_json_fields(c) for c in cursor.fetchall()]
+        conn.close()
+
+        if not courses:
+            return jsonify({"message": "No courses to index", "count": 0})
+
+        rag = get_rag_service()
+        rag.index_courses(courses)
+
+        return jsonify({"message": "Courses indexed", "count": len(courses)})
+
+    except Exception as e:
+        app.logger.exception("Indexing failed")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/reindex", methods=["POST"])
+def reindex_courses():
+    """Wipe vector store and re-index all courses from database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM courses")
+        courses = [parse_json_fields(c) for c in cursor.fetchall()]
+        conn.close()
+
+        if not courses:
+            return jsonify({"message": "No courses to index", "count": 0})
+
+        rag = get_rag_service()
+
+        chunks = rag.build_chunks(courses)
+        if chunks:
+            rag.vector_store.delete([c["id"] for c in chunks])
+
+        rag.index_courses(courses)
+
+        return jsonify(
+            {"message": "Vector store wiped and re-indexed", "count": len(courses)}
+        )
+
+    except Exception as e:
+        app.logger.exception("Reindex failed")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/upload", methods=["POST"])
@@ -571,5 +781,26 @@ def delete_course(course_id):
         return jsonify({"error": str(e)}), 400
 
 
+def reindex_on_startup():
+    """Reindex courses on startup"""
+    try:
+        from rag_service import get_rag_service
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM courses")
+        courses = [parse_json_fields(c) for c in cursor.fetchall()]
+        conn.close()
+
+        if courses:
+            rag = get_rag_service()
+            print(f"Indexing {len(courses)} courses on startup...")
+            rag.index_courses(courses)
+            print(f"Indexed {len(courses)} courses")
+    except Exception as e:
+        print(f"Startup indexing failed: {e}")
+
+
 if __name__ == "__main__":
+    reindex_on_startup()
     app.run(host="0.0.0.0", port=5000, debug=True)
