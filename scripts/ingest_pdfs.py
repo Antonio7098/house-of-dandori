@@ -8,14 +8,23 @@ Usage:
 """
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 import requests
 
 
+def extract_original_filename(stored_filename: str) -> str:
+    """Extract original filename from stored filename (strips UUID prefix)."""
+    if not stored_filename:
+        return ""
+    match = re.match(r"^[a-f0-9]+_(.+)$", stored_filename)
+    return match.group(1) if match else stored_filename
+
+
 def get_existing_courses(api_url: str) -> set:
-    """Get existing course filenames from the API."""
+    """Get existing course filenames from the API (original names, without UUID prefix)."""
     existing = set()
     page = 1
     while True:
@@ -31,7 +40,8 @@ def get_existing_courses(api_url: str) -> set:
                 break
             for course in courses:
                 if course.get("filename"):
-                    existing.add(course["filename"])
+                    original = extract_original_filename(course["filename"])
+                    existing.add(original)
             page += 1
         except Exception as e:
             print(f"Warning: Could not fetch existing courses: {e}")
