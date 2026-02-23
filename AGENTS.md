@@ -157,10 +157,13 @@ Tests use an in-memory SQLite database via `tests/conftest.py`. The fixture sets
 
 ## Mentoring & Learning
 
-When implementing features, feel free to:
+After implementing a feature, prompt the user with questions to test their understanding:
 
-1. **Explain the concepts** - Walk through how new components work
-2. **Ask questions** - Test understanding with probing questions
+1. **Explain what you did** - Walk through how the new component works
+2. **Test their understanding** - Ask probing questions like:
+   - "Why do you think we used X instead of Y?"
+   - "What would happen if we changed Z?"
+   - "Can you explain how the data flows through this?"
 3. **Suggest extensions** - Encourage trying variations or additions
 4. **Discuss tradeoffs** - Analyze pros/cons of different approaches
 5. **Foster critical thinking** - Challenge assumptions and explore alternatives
