@@ -36,45 +36,90 @@ class CourseExtractor:
 
     def _parse_course_data(self, text: str, pdf_path: str) -> Dict:
         """Parse extracted text into structured course data"""
-        title_match = re.search(r"^(.+?)(?:\n|Instructor:)", text, re.MULTILINE)
-        title = title_match.group(1).strip() if title_match else "Unknown"
+        lines = [l.strip() for l in text.split("\n")]
 
-        instructor_match = re.search(r"Instructor:\s*(.+?)(?:\n|Location:)", text)
-        instructor = instructor_match.group(1).strip() if instructor_match else None
+        title = "Unknown"
+        for line in lines:
+            if (
+                line
+                and not line.startswith(
+                    (
+                        "Instructor:",
+                        "Location:",
+                        "Course Type:",
+                        "Cost:",
+                        "Learning",
+                        "Provided",
+                        "Skills",
+                        "Course",
+                        "Class ID:",
+                    )
+                )
+                and "Instructor:" not in line
+                and "Location:" not in line
+            ):
+                title = line
+                break
 
-        location_match = re.search(r"Location:\s*(.+?)(?:\n|Course Type:)", text)
-        location = location_match.group(1).strip() if location_match else None
+        def find_line_containing(search_text):
+            for i, line in enumerate(lines):
+                if search_text in line:
+                    return i
+            return -1
 
-        course_type_match = re.search(r"Course Type:\s*(.+?)(?:\n|Cost:)", text)
-        course_type = course_type_match.group(1).strip() if course_type_match else None
+        def extract_value_with_embedded_label(
+            label_text, embedded_label, next_line_label
+        ):
+            try:
+                idx = lines.index(label_text)
+                if idx + 1 < len(lines):
+                    value_line = lines[idx + 1]
+                    if embedded_label in value_line:
+                        return value_line.replace(embedded_label, "").strip()
+                    return value_line
+                return None
+            except ValueError:
+                return None
 
-        cost_match = re.search(r"Cost:\s*(.+?)(?:\n|Learning)", text)
-        cost = cost_match.group(1).strip() if cost_match else None
+        def extract_value_after_embedded_label(embedded_label):
+            idx = find_line_containing(embedded_label)
+            if idx >= 0 and idx + 1 < len(lines):
+                return lines[idx + 1]
+            return None
+
+        instructor = extract_value_with_embedded_label(
+            "Instructor:", "Location:", "Location:"
+        )
+        location = extract_value_after_embedded_label("Location:")
+        course_type = extract_value_with_embedded_label(
+            "Course Type:", "Cost:", "Cost:"
+        )
+        cost = extract_value_after_embedded_label("Cost:")
 
         class_id_match = re.search(r"Class ID:\s*(CLASS_\d+)", text)
         class_id = class_id_match.group(1) if class_id_match else None
 
         objectives_match = re.search(
-            r"Learning Objectives(.+?)Provided Materials", text, re.DOTALL
+            r"Learning Objectives\s*\n(.+?)Provided Materials", text, re.DOTALL
         )
         learning_objectives = (
             objectives_match.group(1).strip() if objectives_match else None
         )
 
         materials_match = re.search(
-            r"Provided Materials(.+?)Skills Developed", text, re.DOTALL
+            r"Provided Materials\s*\n(.+?)Skills Developed", text, re.DOTALL
         )
         provided_materials = (
             materials_match.group(1).strip() if materials_match else None
         )
 
         skills_match = re.search(
-            r"Skills Developed(.+?)Course Description", text, re.DOTALL
+            r"Skills Developed\s*\n(.+?)Course Description", text, re.DOTALL
         )
         skills = skills_match.group(1).strip() if skills_match else None
 
         description_match = re.search(
-            r"Course Description(.+?)Class ID:", text, re.DOTALL
+            r"Course Description\s*\n(.+?)Class ID:", text, re.DOTALL
         )
         description = description_match.group(1).strip() if description_match else None
 
@@ -241,6 +286,8 @@ if __name__ == "__main__":
     import sys
 
     database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        database_url = "".join(database_url.split())
     pdf_dir = sys.argv[1] if len(sys.argv) > 1 else "pdfs"
 
     print("Starting School of Dandori data ingestion pipeline...")

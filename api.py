@@ -9,7 +9,7 @@ import os
 import re
 import sqlite3
 import uuid
-import tempfile
+from urllib.parse import urlparse
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -20,7 +20,6 @@ from psycopg2 import extras
 from flask import Flask, jsonify, request, render_template, send_file
 from werkzeug.utils import secure_filename
 import PyPDF2
-from google.cloud import storage
 
 app = Flask(__name__)
 app.config["JSON_AS_ASCII"] = False
@@ -28,8 +27,8 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
 DB_PATH = os.environ.get("DB_PATH", "courses.db")
 DATABASE_URL = os.environ.get("DATABASE_URL")
-GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME")
-GCS_CREDENTIALS = os.environ.get("GCS_CREDENTIALS_JSON")
+if DATABASE_URL:
+    DATABASE_URL = "".join(DATABASE_URL.split())
 
 ALLOWED_EXTENSIONS = {"pdf"}
 
@@ -41,6 +40,9 @@ def allowed_file(filename):
 def get_db_connection():
     """Create database connection - supports both SQLite (local) and PostgreSQL (Supabase)"""
     if DATABASE_URL:
+        parsed = urlparse(DATABASE_URL)
+        if not parsed.hostname:
+            raise ValueError("Invalid DATABASE_URL: hostname is missing or malformed")
         conn = psycopg2.connect(DATABASE_URL, cursor_factory=extras.RealDictCursor)
     else:
         conn = sqlite3.connect(DB_PATH)
@@ -60,29 +62,6 @@ def extract_returning_id(row):
         return None
 
 
-def upload_to_gcs(file_data, filename):
-    """Upload file to Google Cloud Storage"""
-    if not GCS_BUCKET_NAME:
-        return None
-
-    try:
-        if GCS_CREDENTIALS:
-            client = storage.Client.from_service_account_json(
-                io.StringIO(GCS_CREDENTIALS)
-            )
-        else:
-            client = storage.Client()
-
-        bucket = client.bucket(GCS_BUCKET_NAME)
-        blob = bucket.blob(f"pdfs/{filename}")
-        blob.upload_from_string(file_data, content_type="application/pdf")
-
-        return f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/pdfs/{filename}"
-    except Exception as e:
-        print(f"GCS upload error: {e}")
-        return None
-
-
 def extract_from_pdf(file_data):
     """Extract course data from PDF bytes"""
     try:
@@ -99,42 +78,85 @@ def extract_from_pdf(file_data):
 
 def parse_course_data(text):
     """Parse extracted text into structured course data"""
-    title_match = re.search(r"^(.+?)(?:\n|Instructor:)", text, re.MULTILINE)
-    title = title_match.group(1).strip() if title_match else "Unknown"
+    lines = [l.strip() for l in text.split("\n")]
 
-    instructor_match = re.search(r"Instructor:\s*(.+?)(?:\n|Location:)", text)
-    instructor = instructor_match.group(1).strip() if instructor_match else None
+    title = "Unknown"
+    for line in lines:
+        if (
+            line
+            and not line.startswith(
+                (
+                    "Instructor:",
+                    "Location:",
+                    "Course Type:",
+                    "Cost:",
+                    "Learning",
+                    "Provided",
+                    "Skills",
+                    "Course",
+                    "Class ID:",
+                )
+            )
+            and "Instructor:" not in line
+            and "Location:" not in line
+        ):
+            title = line
+            break
 
-    location_match = re.search(r"Location:\s*(.+?)(?:\n|Course Type:)", text)
-    location = location_match.group(1).strip() if location_match else None
+    def find_line_containing(search_text):
+        for i, line in enumerate(lines):
+            if search_text in line:
+                return i
+        return -1
 
-    course_type_match = re.search(r"Course Type:\s*(.+?)(?:\n|Cost:)", text)
-    course_type = course_type_match.group(1).strip() if course_type_match else None
+    def extract_value_with_embedded_label(label_text, embedded_label, next_line_label):
+        try:
+            idx = lines.index(label_text)
+            if idx + 1 < len(lines):
+                value_line = lines[idx + 1]
+                if embedded_label in value_line:
+                    return value_line.replace(embedded_label, "").strip()
+                return value_line
+            return None
+        except ValueError:
+            return None
 
-    cost_match = re.search(r"Cost:\s*(.+?)(?:\n|Learning)", text)
-    cost = cost_match.group(1).strip() if cost_match else None
+    def extract_value_after_embedded_label(embedded_label):
+        idx = find_line_containing(embedded_label)
+        if idx >= 0 and idx + 1 < len(lines):
+            return lines[idx + 1]
+        return None
+
+    instructor = extract_value_with_embedded_label(
+        "Instructor:", "Location:", "Location:"
+    )
+    location = extract_value_after_embedded_label("Location:")
+    course_type = extract_value_with_embedded_label("Course Type:", "Cost:", "Cost:")
+    cost = extract_value_after_embedded_label("Cost:")
 
     class_id_match = re.search(r"Class ID:\s*(CLASS_\d+)", text)
     class_id = class_id_match.group(1) if class_id_match else None
 
     objectives_match = re.search(
-        r"Learning Objectives(.+?)Provided Materials", text, re.DOTALL
+        r"Learning Objectives\s*\n(.+?)Provided Materials", text, re.DOTALL
     )
     learning_objectives = (
         objectives_match.group(1).strip() if objectives_match else None
     )
 
     materials_match = re.search(
-        r"Provided Materials(.+?)Skills Developed", text, re.DOTALL
+        r"Provided Materials\s*\n(.+?)Skills Developed", text, re.DOTALL
     )
     provided_materials = materials_match.group(1).strip() if materials_match else None
 
     skills_match = re.search(
-        r"Skills Developed(.+?)Course Description", text, re.DOTALL
+        r"Skills Developed\s*\n(.+?)Course Description", text, re.DOTALL
     )
     skills = skills_match.group(1).strip() if skills_match else None
 
-    description_match = re.search(r"Course Description(.+?)Class ID:", text, re.DOTALL)
+    description_match = re.search(
+        r"Course Description\s*\n(.+?)Class ID:", text, re.DOTALL
+    )
     description = description_match.group(1).strip() if description_match else None
 
     return {
@@ -261,9 +283,7 @@ def upload_pdf():
     if not course_data:
         return jsonify({"error": "Failed to extract data from PDF"}), 400
 
-    pdf_url = upload_to_gcs(file_data, unique_filename)
     course_data["filename"] = unique_filename
-    course_data["pdf_url"] = pdf_url
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -327,7 +347,6 @@ def upload_pdf():
             {
                 "id": course_id,
                 "message": "Course created",
-                "pdf_url": pdf_url,
                 "data": course_data,
             }
         ), 201
