@@ -6,13 +6,7 @@ A Flask-based REST API for managing wellness courses, with semantic search power
 
 The School of Dandori teaches wellbeing through whimsical evening and weekend classes. This platform allows customers to browse, search, and register for courses while instructors can submit and manage their offerings.
 
-## Tech Stack
-
-- **Backend**: Flask (Python)
-- **Database**: PostgreSQL (Supabase) with SQLite for local development
-- **Vector Store**: ChromaDB (local) / Vertex AI Vector Search (production)
-- **Deployment**: Google Cloud Run
-- **PDF Processing**: PyPDF2
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation.
 
 ## Features
 
@@ -52,7 +46,9 @@ python3 -m pytest tests/ -v
 
 **Always run tests before pushing to remote.**
 
-## API Endpoints
+## Quick Reference
+
+### API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -67,7 +63,7 @@ python3 -m pytest tests/ -v
 | POST | `/api/reindex` | Reindex all courses |
 | GET | `/api/config` | Get vector indexing status |
 
-## Environment Variables
+### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
