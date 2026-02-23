@@ -66,9 +66,8 @@ def semantic_search():
 
         conn = get_db_connection()
         cursor = conn.cursor()
-        from src.core.config import DATABASE_URL
 
-        use_postgres = bool(DATABASE_URL)
+        use_postgres = bool(os.environ.get("DATABASE_URL"))
         placeholder = "%s" if use_postgres else "?"
 
         placeholders = ",".join([placeholder] * len(paginated_ids))

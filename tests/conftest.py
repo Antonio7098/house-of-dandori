@@ -1,6 +1,8 @@
 import os
 
-os.environ["DB_PATH"] = ":memory:"
+test_db_path = "/tmp/test_dandori.db"
+os.environ["DB_PATH"] = test_db_path
+os.environ["DATABASE_URL"] = ""
 
 import pytest
 from src.models.database import DatabaseManager

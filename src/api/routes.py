@@ -1,4 +1,5 @@
 import io
+import os
 import re
 import uuid
 import json
@@ -48,9 +49,8 @@ def get_courses():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        from src.core.config import DATABASE_URL
-
-        use_postgres = bool(DATABASE_URL)
+        db_url = os.environ.get("DATABASE_URL")
+        use_postgres = bool(db_url)
         placeholder = "%s" if use_postgres else "?"
 
         query = """
@@ -93,11 +93,16 @@ def get_courses():
 
         cursor.execute(count_query, count_params)
         count_result = cursor.fetchone()
-        total = (
-            count_result[0]
-            if isinstance(count_result, (tuple, list))
-            else count_result["count"]
-        )
+        if isinstance(count_result, (tuple, list)):
+            total = count_result[0]
+        elif hasattr(count_result, "keys"):
+            total = (
+                count_result["count"]
+                if "count" in count_result.keys()
+                else count_result[0]
+            )
+        else:
+            total = count_result[0]
 
         query += f" ORDER BY class_id LIMIT {placeholder} OFFSET {placeholder}"
         params.extend([limit, offset])
@@ -137,9 +142,7 @@ def get_courses_bulk():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        from src.core.config import DATABASE_URL
-
-        use_postgres = bool(DATABASE_URL)
+        use_postgres = bool(os.environ.get("DATABASE_URL"))
         placeholder = "%s" if use_postgres else "?"
 
         placeholders = ",".join([placeholder] * len(course_ids))
@@ -162,9 +165,7 @@ def get_courses_bulk():
 def get_course(course_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    from src.core.config import DATABASE_URL
-
-    use_postgres = bool(DATABASE_URL)
+    use_postgres = bool(os.environ.get("DATABASE_URL"))
     placeholder = "%s" if use_postgres else "?"
 
     cursor.execute(f"SELECT * FROM courses WHERE id = {placeholder}", (course_id,))
@@ -179,9 +180,7 @@ def get_course(course_id):
 @courses_bp.route("/api/courses", methods=["POST"])
 def create_course():
     data = request.json
-    from src.core.config import DATABASE_URL
-
-    use_postgres = bool(DATABASE_URL)
+    use_postgres = bool(os.environ.get("DATABASE_URL"))
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -249,9 +248,7 @@ def create_course():
 @courses_bp.route("/api/courses/<int:course_id>", methods=["PUT"])
 def update_course(course_id):
     data = request.json
-    from src.core.config import DATABASE_URL
-
-    use_postgres = bool(DATABASE_URL)
+    use_postgres = bool(os.environ.get("DATABASE_URL"))
     placeholder = "%s" if use_postgres else "?"
 
     conn = get_db_connection()
@@ -296,9 +293,7 @@ def update_course(course_id):
 
 @courses_bp.route("/api/courses/<int:course_id>", methods=["DELETE"])
 def delete_course(course_id):
-    from src.core.config import DATABASE_URL
-
-    use_postgres = bool(DATABASE_URL)
+    use_postgres = bool(os.environ.get("DATABASE_URL"))
     placeholder = "%s" if use_postgres else "?"
 
     conn = get_db_connection()
@@ -343,13 +338,11 @@ def upload_pdf():
     if not course_data.get("class_id"):
         course_data["class_id"] = f"CLASS_{uuid.uuid4().hex[:8].upper()}"
 
-    from src.core.config import DATABASE_URL
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
-        if DATABASE_URL:
+        if os.environ.get("DATABASE_URL"):
             cursor.execute(
                 """INSERT INTO courses (
                     class_id, title, instructor, location, course_type, cost,

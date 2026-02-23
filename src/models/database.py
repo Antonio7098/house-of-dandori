@@ -12,8 +12,8 @@ from src.core.utils import to_json
 
 class DatabaseManager:
     def __init__(self, database_url: str = None, db_path: str = None):
-        self.database_url = database_url or DATABASE_URL
-        self.db_path = db_path or DB_PATH
+        self.database_url = database_url or os.environ.get("DATABASE_URL")
+        self.db_path = db_path or os.environ.get("DB_PATH", "courses.db")
         self.conn = None
 
     def connect(self):
@@ -151,10 +151,12 @@ class DatabaseManager:
 
 
 def get_db_connection():
-    if DATABASE_URL:
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=extras.RealDictCursor)
+    database_url = os.environ.get("DATABASE_URL")
+    db_path = os.environ.get("DB_PATH", "courses.db")
+    if database_url:
+        conn = psycopg2.connect(database_url, cursor_factory=extras.RealDictCursor)
     else:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
     return conn
 

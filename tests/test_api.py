@@ -3,7 +3,7 @@ from src.api.app import create_app
 
 
 @pytest.fixture
-def client():
+def client(setup_test_db):
     app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as client:

@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=False)
 
 DB_PATH = os.environ.get("DB_PATH", "courses.db")
 DATABASE_URL = os.environ.get("DATABASE_URL")
