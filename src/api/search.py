@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, jsonify, request
 
 from src.core.utils import parse_json_fields
@@ -5,6 +6,19 @@ from src.models.database import get_db_connection
 from src.services.rag_service import get_rag_service
 
 search_bp = Blueprint("search", __name__)
+
+
+@search_bp.route("/api/config", methods=["GET"])
+def get_config():
+    return jsonify(
+        {
+            "vectorIndexingEnabled": os.environ.get(
+                "ENABLE_VECTOR_INDEXING", "true"
+            ).lower()
+            == "true"
+        }
+    )
+
 
 rag_service = None
 
