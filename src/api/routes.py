@@ -397,3 +397,144 @@ def upload_pdf():
     except Exception as e:
         conn.close()
         return jsonify({"error": str(e)}), 400
+
+
+def process_single_pdf(file, use_postgres):
+    """Process a single PDF file and return course data."""
+    file_data = file.read()
+    filename = secure_filename(file.filename) if file.filename else "unknown.pdf"
+    unique_filename = f"{uuid.uuid4().hex}_{filename}"
+
+    course_data = extract_from_pdf(file_data, filename)
+    if not course_data:
+        return None
+
+    course_data["filename"] = unique_filename
+    if not course_data.get("class_id"):
+        course_data["class_id"] = f"CLASS_{uuid.uuid4().hex[:8].upper()}"
+
+    return insert_course(course_data, use_postgres)
+
+
+def insert_course(course_data, use_postgres):
+    """Insert course data into database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        if use_postgres:
+            cursor.execute(
+                """INSERT INTO courses (
+                    class_id, title, instructor, location, course_type, cost,
+                    learning_objectives, provided_materials, skills, description, filename, pdf_url
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id""",
+                (
+                    course_data.get("class_id"),
+                    course_data.get("title"),
+                    course_data.get("instructor"),
+                    course_data.get("location"),
+                    course_data.get("course_type"),
+                    course_data.get("cost"),
+                    to_json(course_data.get("learning_objectives")),
+                    to_json(course_data.get("provided_materials")),
+                    to_json(course_data.get("skills")),
+                    course_data.get("description"),
+                    course_data.get("filename"),
+                    course_data.get("pdf_url"),
+                ),
+            )
+            course_id = extract_returning_id(cursor.fetchone())
+        else:
+            cursor.execute(
+                """INSERT INTO courses (
+                    class_id, title, instructor, location, course_type, cost,
+                    learning_objectives, provided_materials, skills, description, filename, pdf_url
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    course_data.get("class_id"),
+                    course_data.get("title"),
+                    course_data.get("instructor"),
+                    course_data.get("location"),
+                    course_data.get("course_type"),
+                    course_data.get("cost"),
+                    to_json(course_data.get("learning_objectives")),
+                    to_json(course_data.get("provided_materials")),
+                    to_json(course_data.get("skills")),
+                    course_data.get("description"),
+                    course_data.get("filename"),
+                    course_data.get("pdf_url"),
+                ),
+            )
+            course_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return {"id": course_id, "message": "Course created", "data": course_data}
+    except Exception as e:
+        conn.close()
+        raise e
+
+
+@courses_bp.route("/api/upload/batch", methods=["POST"])
+def upload_batch():
+    if "files" not in request.files:
+        return jsonify({"error": "No files provided"}), 400
+
+    files = request.files.getlist("files")
+    if not files or all(f.filename == "" for f in files):
+        return jsonify({"error": "No files selected"}), 400
+
+    use_postgres = bool(os.environ.get("DATABASE_URL"))
+    results = []
+    successful = 0
+    failed = 0
+
+    for i, file in enumerate(files):
+        if not allowed_file(file.filename):
+            results.append(
+                {
+                    "filename": file.filename,
+                    "success": False,
+                    "error": "File type not allowed",
+                }
+            )
+            failed += 1
+            continue
+
+        try:
+            result = process_single_pdf(file, use_postgres)
+            if result:
+                results.append(
+                    {
+                        "filename": file.filename,
+                        "success": True,
+                        "course_id": result["id"],
+                        "title": result["data"].get("title"),
+                    }
+                )
+                successful += 1
+            else:
+                results.append(
+                    {
+                        "filename": file.filename,
+                        "success": False,
+                        "error": "Failed to extract data from PDF",
+                    }
+                )
+                failed += 1
+        except Exception as e:
+            results.append(
+                {"filename": file.filename, "success": False, "error": str(e)}
+            )
+            failed += 1
+
+    return jsonify(
+        {
+            "total": len(files),
+            "successful": successful,
+            "failed": failed,
+            "results": results,
+        }
+    ), 200

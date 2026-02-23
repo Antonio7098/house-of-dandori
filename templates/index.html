@@ -730,42 +730,33 @@
             }
             
             btn.disabled = true;
-            status.textContent = `Uploading ${files.length} file(s)...`;
+            status.textContent = `Processing ${files.length} file(s)...`;
             status.className = 'upload-status';
             
-            let successCount = 0;
-            let errorCount = 0;
-            
+            const formData = new FormData();
             for (const file of files) {
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                try {
-                    const response = await fetch('/api/upload', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (response.ok) {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                        console.error(`Error uploading ${file.name}`);
-                    }
-                } catch (error) {
-                    errorCount++;
-                    console.error(`Error uploading ${file.name}:`, error);
-                }
+                formData.append('files', file);
             }
             
-            if (errorCount === 0) {
-                status.textContent = `Successfully uploaded ${successCount} file(s)!`;
-                status.className = 'upload-status success';
-                input.value = '';
-                isVectorSearch = false;
-                loadCourses();
-            } else {
-                status.textContent = `Uploaded ${successCount}, failed ${errorCount}`;
+            try {
+                const response = await fetch('/api/upload/batch', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    status.textContent = `Successfully processed ${result.successful}/${result.total} file(s)`;
+                    status.className = 'upload-status success';
+                    input.value = '';
+                    loadCourses();
+                } else {
+                    status.textContent = `Error: ${result.error}`;
+                    status.className = 'upload-status error';
+                }
+            } catch (error) {
+                status.textContent = `Error: ${error.message}`;
                 status.className = 'upload-status error';
             }
             
