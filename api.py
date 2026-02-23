@@ -9,8 +9,10 @@ import os
 import re
 import sqlite3
 import uuid
+import json
 from urllib.parse import urlparse
 from pathlib import Path
+from typing import List, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,6 +33,31 @@ if DATABASE_URL:
     DATABASE_URL = "".join(DATABASE_URL.split())
 
 ALLOWED_EXTENSIONS = {"pdf"}
+
+LOCATION_CLEANUP = {
+    "Harrogate, UK": "Harrogate",
+    "Oxford Botanical Gardens": "Oxford",
+}
+
+
+def clean_location(location: Optional[str]) -> Optional[str]:
+    if not location:
+        return location
+    return LOCATION_CLEANUP.get(location, location)
+
+
+def text_to_list(text: Optional[str]) -> Optional[List[str]]:
+    if not text:
+        return None
+    items = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        stripped = line.lstrip("•·-* ").strip()
+        if stripped:
+            items.append(stripped)
+    return items if items else None
 
 
 def allowed_file(filename):
@@ -62,7 +89,7 @@ def extract_returning_id(row):
         return None
 
 
-def extract_from_pdf(file_data):
+def extract_from_pdf(file_data, filename=None):
     """Extract course data from PDF bytes"""
     try:
         reader = PyPDF2.PdfReader(io.BytesIO(file_data))
@@ -70,15 +97,21 @@ def extract_from_pdf(file_data):
         for page in reader.pages:
             text += page.extract_text()
 
-        return parse_course_data(text)
+        return parse_course_data(text, filename)
     except Exception as e:
         print(f"PDF extraction error: {e}")
         return None
 
 
-def parse_course_data(text):
+def parse_course_data(text, filename=None):
     """Parse extracted text into structured course data"""
     lines = [l.strip() for l in text.split("\n")]
+
+    if filename:
+        filename_match = re.search(r"class_(\d+)", filename, re.IGNORECASE)
+        class_id = f"CLASS_{filename_match.group(1)}" if filename_match else None
+    else:
+        class_id = None
 
     title = "Unknown"
     for line in lines:
@@ -134,36 +167,40 @@ def parse_course_data(text):
     course_type = extract_value_with_embedded_label("Course Type:", "Cost:", "Cost:")
     cost = extract_value_after_embedded_label("Cost:")
 
-    class_id_match = re.search(r"Class ID:\s*(CLASS_\d+)", text)
-    class_id = class_id_match.group(1) if class_id_match else None
-
     objectives_match = re.search(
         r"Learning Objectives\s*\n(.+?)Provided Materials", text, re.DOTALL
     )
-    learning_objectives = (
+    learning_objectives = text_to_list(
         objectives_match.group(1).strip() if objectives_match else None
     )
 
     materials_match = re.search(
         r"Provided Materials\s*\n(.+?)Skills Developed", text, re.DOTALL
     )
-    provided_materials = materials_match.group(1).strip() if materials_match else None
+    provided_materials = text_to_list(
+        materials_match.group(1).strip() if materials_match else None
+    )
 
     skills_match = re.search(
         r"Skills Developed\s*\n(.+?)Course Description", text, re.DOTALL
     )
-    skills = skills_match.group(1).strip() if skills_match else None
+    skills = text_to_list(skills_match.group(1).strip() if skills_match else None)
 
     description_match = re.search(
         r"Course Description\s*\n(.+?)Class ID:", text, re.DOTALL
     )
     description = description_match.group(1).strip() if description_match else None
+    description = (
+        " ".join(line.strip() for line in description.split("\n"))
+        if description
+        else None
+    )
 
     return {
         "class_id": class_id,
         "title": title,
         "instructor": instructor,
-        "location": location,
+        "location": clean_location(location),
         "course_type": course_type,
         "cost": cost,
         "learning_objectives": learning_objectives,
@@ -171,6 +208,22 @@ def parse_course_data(text):
         "skills": skills,
         "description": description,
     }
+
+
+def parse_json_fields(course):
+    """Parse JSON string fields back to lists"""
+    if not course:
+        return course
+    json_fields = ["learning_objectives", "provided_materials", "skills"]
+    result = dict(course) if not isinstance(course, dict) else course.copy()
+    for field in json_fields:
+        val = result.get(field)
+        if val and isinstance(val, str):
+            try:
+                result[field] = json.loads(val)
+            except json.JSONDecodeError:
+                pass
+    return result
 
 
 @app.route("/")
@@ -222,7 +275,7 @@ def get_courses():
         query += " ORDER BY class_id"
 
         cursor.execute(query, params)
-        courses = list(cursor.fetchall())
+        courses = [parse_json_fields(c) for c in cursor.fetchall()]
 
         return jsonify({"count": len(courses), "courses": courses})
     except Exception as e:
@@ -248,7 +301,7 @@ def get_course(course_id):
     conn.close()
 
     if course:
-        return jsonify(dict(course))
+        return jsonify(parse_json_fields(course))
     else:
         return jsonify({"error": "Course not found"}), 404
 
@@ -278,12 +331,18 @@ def upload_pdf():
 
     unique_filename = f"{uuid.uuid4().hex}_{filename}"
 
-    course_data = extract_from_pdf(file_data)
+    course_data = extract_from_pdf(file_data, filename)
 
     if not course_data:
         return jsonify({"error": "Failed to extract data from PDF"}), 400
 
     course_data["filename"] = unique_filename
+
+    if not course_data.get("class_id"):
+        course_data["class_id"] = f"CLASS_{uuid.uuid4().hex[:8].upper()}"
+
+    def to_json(val):
+        return json.dumps(val) if val is not None else None
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -306,9 +365,9 @@ def upload_pdf():
                     course_data.get("location"),
                     course_data.get("course_type"),
                     course_data.get("cost"),
-                    course_data.get("learning_objectives"),
-                    course_data.get("provided_materials"),
-                    course_data.get("skills"),
+                    to_json(course_data.get("learning_objectives")),
+                    to_json(course_data.get("provided_materials")),
+                    to_json(course_data.get("skills")),
                     course_data.get("description"),
                     course_data.get("filename"),
                     course_data.get("pdf_url"),
@@ -331,9 +390,9 @@ def upload_pdf():
                     course_data.get("location"),
                     course_data.get("course_type"),
                     course_data.get("cost"),
-                    course_data.get("learning_objectives"),
-                    course_data.get("provided_materials"),
-                    course_data.get("skills"),
+                    to_json(course_data.get("learning_objectives")),
+                    to_json(course_data.get("provided_materials")),
+                    to_json(course_data.get("skills")),
                     course_data.get("description"),
                     course_data.get("filename"),
                     course_data.get("pdf_url"),
@@ -371,6 +430,9 @@ def create_course():
     else:
         filename = f"manual_{uuid.uuid4().hex}.pdf"
 
+    def to_json(val):
+        return json.dumps(val) if val is not None else None
+
     try:
         if use_postgres:
             cursor.execute(
@@ -389,9 +451,9 @@ def create_course():
                     data.get("location"),
                     data.get("course_type"),
                     data.get("cost"),
-                    data.get("learning_objectives"),
-                    data.get("provided_materials"),
-                    data.get("skills"),
+                    to_json(data.get("learning_objectives")),
+                    to_json(data.get("provided_materials")),
+                    to_json(data.get("skills")),
                     data.get("description"),
                     filename,
                 ),
@@ -413,9 +475,9 @@ def create_course():
                     data.get("location"),
                     data.get("course_type"),
                     data.get("cost"),
-                    data.get("learning_objectives"),
-                    data.get("provided_materials"),
-                    data.get("skills"),
+                    to_json(data.get("learning_objectives")),
+                    to_json(data.get("provided_materials")),
+                    to_json(data.get("skills")),
                     data.get("description"),
                     filename,
                 ),
@@ -438,23 +500,28 @@ def update_course(course_id):
 
     conn = get_db_connection()
     cursor = conn.cursor()
+    use_postgres = bool(DATABASE_URL)
+    placeholder = "%s" if use_postgres else "?"
+
+    def to_json(val):
+        return json.dumps(val) if val is not None else None
 
     try:
         cursor.execute(
-            """
+            f"""
             UPDATE courses SET
-                class_id = %s,
-                title = %s,
-                instructor = %s,
-                location = %s,
-                course_type = %s,
-                cost = %s,
-                learning_objectives = %s,
-                provided_materials = %s,
-                skills = %s,
-                description = %s,
+                class_id = {placeholder},
+                title = {placeholder},
+                instructor = {placeholder},
+                location = {placeholder},
+                course_type = {placeholder},
+                cost = {placeholder},
+                learning_objectives = {placeholder},
+                provided_materials = {placeholder},
+                skills = {placeholder},
+                description = {placeholder},
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
+            WHERE id = {placeholder}
         """,
             (
                 data.get("class_id"),
@@ -463,9 +530,9 @@ def update_course(course_id):
                 data.get("location"),
                 data.get("course_type"),
                 data.get("cost"),
-                data.get("learning_objectives"),
-                data.get("provided_materials"),
-                data.get("skills"),
+                to_json(data.get("learning_objectives")),
+                to_json(data.get("provided_materials")),
+                to_json(data.get("skills")),
                 data.get("description"),
                 course_id,
             ),

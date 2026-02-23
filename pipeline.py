@@ -7,14 +7,42 @@ Extracts course information from PDFs and loads into database
 import os
 import re
 import sqlite3
+import json
 import psycopg2
+from psycopg2 import extras
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
 
 import PyPDF2
+
+
+LOCATION_CLEANUP = {
+    "Harrogate, UK": "Harrogate",
+    "Oxford Botanical Gardens": "Oxford",
+}
+
+
+def clean_location(location: Optional[str]) -> Optional[str]:
+    if not location:
+        return location
+    return LOCATION_CLEANUP.get(location, location)
+
+
+def text_to_list(text: Optional[str]) -> Optional[List[str]]:
+    if not text:
+        return None
+    items = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        stripped = line.lstrip("•·-* ").strip()
+        if stripped:
+            items.append(stripped)
+    return items if items else None
 
 
 class CourseExtractor:
@@ -37,6 +65,10 @@ class CourseExtractor:
     def _parse_course_data(self, text: str, pdf_path: str) -> Dict:
         """Parse extracted text into structured course data"""
         lines = [l.strip() for l in text.split("\n")]
+
+        filename = Path(pdf_path).name
+        filename_match = re.search(r"class_(\d+)", filename, re.IGNORECASE)
+        class_id = f"CLASS_{filename_match.group(1)}" if filename_match else None
 
         title = "Unknown"
         for line in lines:
@@ -96,38 +128,40 @@ class CourseExtractor:
         )
         cost = extract_value_after_embedded_label("Cost:")
 
-        class_id_match = re.search(r"Class ID:\s*(CLASS_\d+)", text)
-        class_id = class_id_match.group(1) if class_id_match else None
-
         objectives_match = re.search(
             r"Learning Objectives\s*\n(.+?)Provided Materials", text, re.DOTALL
         )
-        learning_objectives = (
+        learning_objectives = text_to_list(
             objectives_match.group(1).strip() if objectives_match else None
         )
 
         materials_match = re.search(
             r"Provided Materials\s*\n(.+?)Skills Developed", text, re.DOTALL
         )
-        provided_materials = (
+        provided_materials = text_to_list(
             materials_match.group(1).strip() if materials_match else None
         )
 
         skills_match = re.search(
             r"Skills Developed\s*\n(.+?)Course Description", text, re.DOTALL
         )
-        skills = skills_match.group(1).strip() if skills_match else None
+        skills = text_to_list(skills_match.group(1).strip() if skills_match else None)
 
         description_match = re.search(
             r"Course Description\s*\n(.+?)Class ID:", text, re.DOTALL
         )
         description = description_match.group(1).strip() if description_match else None
+        description = (
+            " ".join(line.strip() for line in description.split("\n"))
+            if description
+            else None
+        )
 
         return {
             "class_id": class_id,
             "title": title,
             "instructor": instructor,
-            "location": location,
+            "location": clean_location(location),
             "course_type": course_type,
             "cost": cost,
             "learning_objectives": learning_objectives,
@@ -201,6 +235,9 @@ class DatabaseManager:
         try:
             cursor = self.conn.cursor()
 
+            def to_json(val):
+                return json.dumps(val) if val is not None else None
+
             if self.database_url:
                 cursor.execute(
                     """
@@ -229,9 +266,9 @@ class DatabaseManager:
                         course_data["location"],
                         course_data["course_type"],
                         course_data["cost"],
-                        course_data["learning_objectives"],
-                        course_data["provided_materials"],
-                        course_data["skills"],
+                        to_json(course_data["learning_objectives"]),
+                        to_json(course_data["provided_materials"]),
+                        to_json(course_data["skills"]),
                         course_data["description"],
                         course_data["filename"],
                     ),
@@ -264,9 +301,9 @@ class DatabaseManager:
                         course_data["location"],
                         course_data["course_type"],
                         course_data["cost"],
-                        course_data["learning_objectives"],
-                        course_data["provided_materials"],
-                        course_data["skills"],
+                        to_json(course_data["learning_objectives"]),
+                        to_json(course_data["provided_materials"]),
+                        to_json(course_data["skills"]),
                         course_data["description"],
                         course_data["filename"],
                     ),
