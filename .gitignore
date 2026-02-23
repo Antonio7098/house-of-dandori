@@ -10,3 +10,6 @@ __pycache__/
 .git/
 credentials.json
 gcs-key.json
+None/
+*.ipynb
+.chroma/

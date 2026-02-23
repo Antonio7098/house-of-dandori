@@ -3,7 +3,7 @@ from typing import Any
 
 import chromadb
 from chromadb import Documents, EmbeddingFunction, Embeddings
-from vector_store.base import VectorStoreProvider, EmbeddingProvider
+from src.core.vector_store.base import VectorStoreProvider, EmbeddingProvider
 
 
 class OpenRouterEmbedder(EmbeddingFunction):

@@ -1,12 +1,8 @@
 import os
-from typing import Optional
-from dotenv import load_dotenv
 
-load_dotenv()
-
-from vector_store.base import VectorStoreProvider
-from vector_store.chroma import ChromaDBProvider
-from vector_store.vertexai import VertexAIVectorSearchProvider
+from src.core.vector_store.base import VectorStoreProvider
+from src.core.vector_store.chroma import ChromaDBProvider
+from src.core.vector_store.vertexai import VertexAIVectorSearchProvider
 
 
 class VectorStoreFactory:
@@ -18,12 +14,10 @@ class VectorStoreFactory:
     @classmethod
     def create(cls, provider: str = None, **kwargs) -> VectorStoreProvider:
         provider = provider or os.environ.get("VECTOR_STORE_PROVIDER", "chroma")
-
         if provider not in cls.PROVIDERS:
             raise ValueError(
                 f"Unknown provider: {provider}. Available: {list(cls.PROVIDERS.keys())}"
             )
-
         return cls.PROVIDERS[provider](**kwargs)
 
 
@@ -105,7 +99,6 @@ class RAGService:
 
     def index_courses(self, courses: list[dict]) -> None:
         chunks = self.build_chunks(courses)
-
         if chunks:
             existing_ids = [chunk["id"] for chunk in chunks]
             try:

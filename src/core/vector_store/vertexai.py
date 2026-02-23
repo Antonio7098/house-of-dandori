@@ -4,7 +4,7 @@ from typing import Any
 from google.cloud import aiplatform
 from vertexai.language_models import TextEmbeddingModel
 
-from vector_store.base import VectorStoreProvider, EmbeddingProvider
+from src.core.vector_store.base import VectorStoreProvider, EmbeddingProvider
 
 
 class VertexAIEmbeddingProvider(EmbeddingProvider):
