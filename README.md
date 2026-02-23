@@ -20,7 +20,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation
 ### Prerequisites
 
 - Python 3.12+
-- PostgreSQL (or SQLite for local dev)
+- Docker (for local PostgreSQL)
+- PostgreSQL (or SQLite for local dev without Docker)
 
 ### Installation
 
@@ -30,9 +31,12 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Set environment variables
-export DATABASE_URL="postgresql://user:pass@host/db"  # Optional
-export OPENROUTER_API_KEY="your-key"  # For vector embeddings
+# Start local PostgreSQL with Docker
+docker-compose up -d
+
+# Configure environment
+cp .env.docker .env.local
+source .env.local
 
 # Run locally
 python app.py
@@ -67,7 +71,7 @@ python3 -m pytest tests/ -v
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `ENVIRONMENT` | `development` or `production` | `development` |
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (local) |
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
-| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | `chroma` |
-| `ENVIRONMENT` | `development` or `production` | `development` |
+| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
