@@ -21,6 +21,8 @@ Facing challenges with scaling, they've embraced AI to help onboard new instruct
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full tech stack details.
 
+**IMPORTANT:** Always read [ARCHITECTURE.md](./ARCHITECTURE.md) before making any changes to understand the project's architecture and patterns.
+
 ---
 
 ## Development Guidelines
