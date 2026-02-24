@@ -33,6 +33,10 @@ def create_app():
     def profile():
         return render_template("profile.html")
 
+    @app.route("/auth/callback")
+    def auth_callback():
+        return render_template("callback.html")
+
     @app.route("/api/health", methods=["GET"])
     def health():
         return jsonify({"status": "healthy"})

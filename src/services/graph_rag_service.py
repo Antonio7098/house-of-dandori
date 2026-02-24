@@ -91,7 +91,20 @@ def _triple_payload(
     base_metadata = {"subject": subject, "predicate": predicate, "object": obj}
     if metadata:
         base_metadata.update(metadata)
-    return {"id": triple_id, "text": text, "metadata": base_metadata}
+    sanitized_metadata = _sanitize_metadata(base_metadata)
+    return {"id": triple_id, "text": text, "metadata": sanitized_metadata}
+
+
+def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    sanitized: Dict[str, Any] = {}
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        if isinstance(value, (str, int, float, bool)):
+            sanitized[key] = value
+        else:
+            sanitized[key] = str(value)
+    return sanitized
 
 
 def build_kg_triples(courses: List[dict]) -> List[dict]:
