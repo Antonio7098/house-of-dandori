@@ -76,8 +76,9 @@ When adding new features or files:
 - `app.py` - Entry point, runs reindex_on_startup() on boot
 - `src/api/app.py` - Flask app factory
 - `src/api/routes.py` - Course CRUD endpoints
-- `src/api/search.py` - Vector search endpoints
-- `src/services/rag_service.py` - Vector store abstraction
+- `src/api/search.py` - Vector search and GraphRAG endpoints
+- `src/services/rag_service.py` - Standard vector store abstraction
+- `src/services/graph_rag_service.py` - GraphRAG specific KG and chunk builders
 - `src/core/vector_store/chroma.py` - ChromaDB implementation
 - `src/core/vector_store/vertexai.py` - Vertex AI implementation
 - `src/models/database.py` - Database operations

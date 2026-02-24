@@ -829,10 +829,33 @@
         
         async function checkAuth() {
             const token = localStorage.getItem('authToken');
+            console.log('Token found:', !!token, token ? token.substring(0, 20) + '...' : '');
+            
             if (token && authEnabled) {
-                updateAuthUI(true);
+                // Verify token is actually valid
+                try {
+                    const response = await fetch('/api/auth/profile', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (response.ok) {
+                        updateAuthUI(true);
+                    } else {
+                        console.log('Token invalid, clearing');
+                        localStorage.removeItem('authToken');
+                        updateAuthUI(false);
+                    }
+                } catch (e) {
+                    console.error('Auth check failed:', e);
+                    localStorage.removeItem('authToken');
+                    updateAuthUI(false);
+                }
             } else if (!authEnabled) {
-                updateAuthUI(true);
+                // Dev mode - allow access
+                if (token) {
+                    updateAuthUI(true);
+                } else {
+                    updateAuthUI(true); // In dev mode, show as logged in
+                }
             } else {
                 updateAuthUI(false);
             }

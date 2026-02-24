@@ -54,7 +54,8 @@ The School of Dandori course management platform is built with a layered archite
 │   │   └── __init__.py     # Course extraction from PDFs
 │   │
 │   └── services/
-│       └── rag_service.py  # Vector search abstraction
+│       ├── rag_service.py  # Vector search abstraction
+│       └── graph_rag_service.py # GraphRAG dual-collection hybrid search
 │
 ├── templates/
 │   ├── index.html          # Main UI
@@ -194,7 +195,9 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 | DELETE | `/api/courses/<id>` | Delete course |
 | POST | `/api/upload` | Upload PDF |
 | GET | `/api/search` | Semantic search |
+| GET | `/api/graph-search` | GraphRAG hybrid search |
 | POST | `/api/index` | Index courses |
+| POST | `/api/graph-index` | Index GraphRAG collections |
 | POST | `/api/reindex` | Reindex courses |
 | GET | `/api/config` | Get config |
 
@@ -209,6 +212,10 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
 | `ENVIRONMENT` | `development` or `production` | `development` |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
+| `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | None |
+| `GRAPH_RAG_KG_COLLECTION` | Chroma collection name for KG triples | `graph_kg_triples` |
+| `GRAPH_RAG_CHUNK_COLLECTION` | Chroma collection name for course chunks | `graph_course_chunks` |
+| `GRAPH_RAG_LLM_MODEL` | LLM model for GraphRAG answers | `openai/gpt-4o-mini` |
 | `SUPABASE_URL` | Supabase project URL | - |
 | `SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key | - |
 | `SUPABASE_SECRET_KEY` | Supabase secret key | - |

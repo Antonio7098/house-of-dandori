@@ -120,6 +120,51 @@ def semantic_search():
         return jsonify(error_dict), status_code
 
 
+@search_bp.route("/api/graph-search", methods=["GET"])
+def graph_search():
+    query = request.args.get("q", "")
+    k_kg = int(request.args.get("k_kg", 5))
+    k_chunks = int(request.args.get("k_chunks", 5))
+    include_answer = request.args.get("answer", "false").lower() == "true"
+
+    if not query:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Query parameter 'q' is required")
+        )
+        return jsonify(error_dict), status_code
+
+    try:
+        from src.services.graph_rag_service import get_graph_rag_service
+        provider = request.args.get("provider")
+        graph_rag = get_graph_rag_service(provider)
+        
+        results = graph_rag.hybrid_search(
+            query=query,
+            k_kg=k_kg,
+            k_chunks=k_chunks,
+            include_answer=include_answer,
+        )
+        
+        api_logger.log_request(
+            method="GET",
+            path="/api/graph-search",
+            status_code=200,
+            duration_ms=0,
+            params={
+                "q": query,
+                "k_kg": k_kg,
+                "k_chunks": k_chunks,
+                "answer": include_answer
+            },
+        )
+        return jsonify(results)
+
+    except Exception as e:
+        api_logger.log_error(e, {"path": "/api/graph-search", "method": "GET"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
+
+
 @search_bp.route("/api/index", methods=["POST"])
 @require_auth
 def index_courses():
@@ -145,6 +190,37 @@ def index_courses():
         return jsonify({"message": "Courses indexed", "count": len(courses)})
     except Exception as e:
         api_logger.log_error(e, {"path": "/api/index", "method": "POST"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
+
+
+@search_bp.route("/api/graph-index", methods=["POST"])
+@require_auth
+def graph_index_courses():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM courses")
+        courses = [parse_json_fields(c) for c in cursor.fetchall()]
+        conn.close()
+
+        if not courses:
+            return jsonify({"message": "No courses to index", "count": 0})
+
+        from src.services.graph_rag_service import get_graph_rag_service
+        graph_rag = get_graph_rag_service()
+        counts = graph_rag.index_courses(courses)
+        
+        api_logger.log_request(
+            method="POST",
+            path="/api/graph-index",
+            status_code=200,
+            duration_ms=0,
+            count=len(courses),
+        )
+        return jsonify({"message": "GraphRAG collections indexed", "counts": counts})
+    except Exception as e:
+        api_logger.log_error(e, {"path": "/api/graph-index", "method": "POST"})
         error_dict, status_code = handle_exception(e)
         return jsonify(error_dict), status_code
 

@@ -85,7 +85,9 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | POST | `/api/upload` | Upload single PDF to extract course |
 | POST | `/api/upload/batch` | Upload multiple PDFs |
 | GET | `/api/search` | Semantic vector search |
+| GET | `/api/graph-search` | GraphRAG hybrid search |
 | POST | `/api/index` | Index courses to vector store |
+| POST | `/api/graph-index` | Index courses for GraphRAG |
 | POST | `/api/reindex` | Reindex all courses |
 | GET | `/api/config` | Get vector indexing status |
 
@@ -97,3 +99,7 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (local) |
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
+| `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | None |
+| `GRAPH_RAG_KG_COLLECTION` | Chroma collection name for KG triples | `graph_kg_triples` |
+| `GRAPH_RAG_CHUNK_COLLECTION` | Chroma collection name for course chunks | `graph_course_chunks` |
+| `GRAPH_RAG_LLM_MODEL` | LLM model for GraphRAG answers | `openai/gpt-4o-mini` |

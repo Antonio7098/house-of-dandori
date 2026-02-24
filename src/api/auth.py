@@ -81,7 +81,15 @@ def login():
         token_data = response.json()
         access_token = token_data.get("access_token")
 
-        return jsonify({"token": access_token, "user": token_data.get("user")})
+        if not access_token:
+            return jsonify({"error": "Login failed - no token received"}), 401
+
+        # Get user info from the response
+        user = token_data.get("user", {})
+        if not user and "email" in token_data:
+            user = {"email": token_data.get("email"), "id": token_data.get("id")}
+
+        return jsonify({"token": access_token, "user": user})
 
     except Exception as e:
         api_logger.log_error(e, {"email": email})
