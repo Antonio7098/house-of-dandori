@@ -16,6 +16,14 @@ app = create_app()
 
 def reindex_on_startup():
     env = os.environ.get("ENVIRONMENT", "development").lower()
+    enabled = os.environ.get("REINDEX_ON_STARTUP", "true").lower() == "true"
+    max_courses = os.environ.get("REINDEX_MAX_COURSES")
+    sample_size: int | None = None
+    if max_courses:
+        try:
+            sample_size = max(1, int(max_courses))
+        except ValueError:
+            sample_size = None
 
     if env == "production":
         os.environ["VECTOR_STORE_PROVIDER"] = "vertexai"
@@ -26,12 +34,20 @@ def reindex_on_startup():
     else:
         os.environ["VECTOR_STORE_PROVIDER"] = "chroma"
 
+    if not enabled:
+        print("Startup reindex disabled via REINDEX_ON_STARTUP")
+        return
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM courses")
         courses = [parse_json_fields(c) for c in cursor.fetchall()]
         conn.close()
+
+        if sample_size and len(courses) > sample_size:
+            courses = courses[:sample_size]
+            print(f"Startup indexing limited to {sample_size} courses")
 
         if courses:
             rag = get_rag_service()

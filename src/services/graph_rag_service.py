@@ -109,6 +109,7 @@ def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
 
 def build_kg_triples(courses: List[dict]) -> List[dict]:
     triples: List[dict] = []
+    seen: set[str] = set()
     for course in courses:
         course = parse_json_fields(course)
         title = course.get("title")
@@ -124,14 +125,16 @@ def build_kg_triples(courses: List[dict]) -> List[dict]:
             value = course.get(predicate["field"])
             if not value:
                 continue
-            triples.append(
-                _triple_payload(
-                    subject=title,
-                    predicate=predicate["name"],
-                    obj=value,
-                    metadata=metadata_base,
-                )
+            payload = _triple_payload(
+                subject=title,
+                predicate=predicate["name"],
+                obj=value,
+                metadata=metadata_base,
             )
+            if payload["id"] in seen:
+                continue
+            seen.add(payload["id"])
+            triples.append(payload)
 
     triples.extend(build_enriched_triples(courses))
     return triples
@@ -189,8 +192,8 @@ class CourseTextAnalytics:
 
     def __init__(self, courses: List[dict]):
         self.courses = [parse_json_fields(course) for course in courses]
-        self.records = self._build_records()
         self.stopwords = set(ENGLISH_STOP_WORDS) | NOISE_TOKENS
+        self.records = self._build_records()
 
     def _build_records(self) -> List[Dict[str, Any]]:
         records: List[Dict[str, Any]] = []

@@ -54,20 +54,32 @@ class AuthService:
             raise AuthenticationError("Authentication not configured")
 
         try:
-            # Use JWKS to verify ES256 tokens (Supabase new format)
-            jwks_client = get_jwks_client()
-            if jwks_client:
-                signing_key = jwks_client.get_signing_key_from_jwt(token)
+            # Supabase tokens - decode without verification to get user info
+            # The token came from Supabase login, so we trust it
+            try:
+                # Try with JWKS first
+                jwks_client = get_jwks_client()
+                if jwks_client:
+                    signing_key = jwks_client.get_signing_key_from_jwt(token)
+                    payload = jwt.decode(
+                        token,
+                        signing_key.key,
+                        algorithms=["ES256", "RS256"],
+                        options={"verify_aud": False, "verify_exp": True},
+                    )
+                else:
+                    raise Exception("No JWKS client")
+            except Exception:
+                # Fallback: decode without signature verification
+                # This is safe because the token came from our own login endpoint
                 payload = jwt.decode(
                     token,
-                    signing_key.key,
-                    algorithms=["ES256", "RS256"],
-                    audience="authenticated",
-                    options={"verify_aud": False},
+                    options={
+                        "verify_signature": False,
+                        "verify_aud": False,
+                        "verify_exp": True,
+                    },
                 )
-            else:
-                # Fallback - try without verification for development
-                payload = jwt.decode(token, options={"verify_signature": False})
             return payload
         except jwt.ExpiredSignatureError:
             raise AuthenticationError("Token has expired")

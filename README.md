@@ -102,6 +102,8 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | None |
 | `GRAPH_RAG_KG_COLLECTION` | Chroma collection name for KG triples | `graph_kg_triples` |
 | `GRAPH_RAG_CHUNK_COLLECTION` | Chroma collection name for course chunks | `graph_course_chunks` |
+| `REINDEX_ON_STARTUP` | Set to `false` to skip auto-indexing on boot | `true` |
+| `REINDEX_MAX_COURSES` | Limit number of courses indexed at startup (blank = all) | *(unset)* |
 
 ### GraphRAG Enrichment Overview
 
