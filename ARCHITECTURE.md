@@ -210,6 +210,6 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 | `ENVIRONMENT` | `development` or `production` | `development` |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
 | `SUPABASE_URL` | Supabase project URL | - |
-| `SUPABASE_ANON_KEY` | Supabase anonymous key | - |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key | - |
+| `SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key | - |
+| `SUPABASE_SECRET_KEY` | Supabase secret key | - |
 | `DEV_BYPASS_AUTH` | Skip auth in development | `true` in development |
