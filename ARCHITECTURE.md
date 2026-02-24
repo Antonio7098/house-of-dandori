@@ -99,6 +99,37 @@ The School of Dandori course management platform is built with a layered archite
 
 ---
 
+## Error Handling & Validation
+
+### Error Taxonomy (`src/core/errors.py`)
+
+Custom exception hierarchy for consistent error handling:
+
+- `AppError` - Base exception with error codes, categories, and severity
+- `ValidationError` - Input validation failures (400)
+- `NotFoundError` - Resource not found (404)
+- `DatabaseError` - Database operations (500)
+- `FileProcessingError` - PDF/upload failures (422)
+- `BadRequestError` - Client errors (400)
+
+All errors return structured JSON with `error`, `code`, `category`, and `details`.
+
+### Structured Logging (`src/core/logging.py`)
+
+JSON-formatted logging with:
+- Request/response tracking via `api_logger.log_request()`
+- Error logging via `api_logger.log_error()`
+- Context fields (request_id, user_id, http method/path)
+
+### Pydantic Schemas (`src/models/schemas.py`)
+
+Request/response validation:
+- `CourseCreate`, `CourseUpdate` - Input validation
+- `CourseResponse` - Response serialization
+- `SearchQuery`, `BulkCourseRequest` - Query parameter validation
+
+---
+
 ## Database
 
 - **Production**: PostgreSQL (Supabase)
