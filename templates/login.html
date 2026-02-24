@@ -186,11 +186,19 @@
                 const data = await response.json();
                 
                 if (!response.ok) {
+                    // Check if email needs confirmation
+                    if (data.error && data.error.includes('Email not confirmed')) {
+                        throw new Error('Please check your email to verify your account before logging in.');
+                    }
                     throw new Error(data.error || 'Login failed');
                 }
                 
-                localStorage.setItem('authToken', data.token);
-                window.location.href = '/';
+                if (data.token) {
+                    localStorage.setItem('authToken', data.token);
+                    window.location.href = '/';
+                } else {
+                    throw new Error('Login failed - no token received');
+                }
                 
             } catch (error) {
                 errorMsg.textContent = error.message;

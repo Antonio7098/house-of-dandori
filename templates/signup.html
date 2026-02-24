@@ -168,10 +168,21 @@
                     throw new Error(data.error || 'Signup failed');
                 }
                 
-                successMsg.textContent = 'Account created! Redirecting to login...';
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
+                // Check if email confirmation is required
+                if (data.message && data.message.includes('check your email')) {
+                    successMsg.textContent = 'Account created! Please check your email to verify your account, then log in.';
+                    document.getElementById('signupForm').reset();
+                    signupBtn.textContent = 'Account Created';
+                    return;
+                }
+                
+                // If no email confirmation needed, log in automatically
+                if (data.token) {
+                    localStorage.setItem('authToken', data.token);
+                    window.location.href = '/';
+                }
+                
+            } catch (error) {
                 
             } catch (error) {
                 errorMsg.textContent = error.message;

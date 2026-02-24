@@ -56,6 +56,20 @@ def login():
         )
 
         if response.status_code != 200:
+            error_data = response.json() if response.text else {}
+            error_msg = error_data.get(
+                "msg", error_data.get("error_description", "Authentication failed")
+            )
+
+            # Check if email needs confirmation
+            if "email" in error_msg.lower() or "confirm" in error_msg.lower():
+                error_dict, status_code = handle_exception(
+                    AuthenticationError(
+                        "Email not confirmed. Please check your email to verify your account."
+                    )
+                )
+                return jsonify(error_dict), 401
+
             api_logger.log_error(
                 Exception(f"Supabase auth failed: {response.text}"), {"email": email}
             )
