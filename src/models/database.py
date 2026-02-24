@@ -8,6 +8,9 @@ from psycopg2 import extras
 
 from src.core.config import DATABASE_URL, DB_PATH
 from src.core.utils import to_json
+from src.core.logging import get_logger
+
+logger = get_logger("database")
 
 
 class DatabaseManager:
@@ -142,7 +145,7 @@ class DatabaseManager:
             self.conn.commit()
             return True
         except Exception as e:
-            print(f"Error inserting course: {e}")
+            logger.error(f"Error inserting course: {e}")
             return False
 
     def close(self):

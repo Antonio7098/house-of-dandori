@@ -34,13 +34,15 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full tech stack details.
    python3 -m pytest tests/ -v
    ```
 
-2. **Update documentation** if you've made changes that affect:
+2. **Test new features with cURL** - Start the server (`python3 app.py`) and test your endpoints manually
+
+3. **Update documentation** if you've made changes that affect:
    - API endpoints (update README.md)
    - Architecture or patterns (update ARCHITECTURE.md)
    - Environment variables (update README.md and ARCHITECTURE.md)
    - Developer guidelines (update AGENTS.md)
 
-3. **Use conventional commits:**
+4. **Use conventional commits:**
    - `feat:` - New feature
    - `fix:` - Bug fix
    - `docs:` - Documentation changes
@@ -49,6 +51,15 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full tech stack details.
    - `chore:` - Maintenance tasks
    
    Example: `feat: add vector search endpoint for semantic course matching`
+
+### SOLID Principles
+
+Always uphold SOLID principles:
+- **SRP**: Each module has one responsibility
+- **OCP**: Open for extension, closed for modification
+- **LSP**: Subtypes must be substitutable for their base types
+- **ISP**: Prefer focused interfaces over bloated ones
+- **DIP**: Depend on abstractions, not concretions
 
 ### Project Organization
 
@@ -89,80 +100,7 @@ Vector store providers (ChromaDB, Vertex AI) are lazy-loaded to reduce memory us
 
 ---
 
-## SOLID Principles Alignment
-
-This codebase follows SOLID principles:
-
-### Single Responsibility Principle (SRP)
-- `src/api/routes.py` - Handles HTTP requests/responses only
-- `src/models/schemas.py` - Pydantic validation schemas only
-- `src/core/errors.py` - Error taxonomy and custom exceptions only
-- `src/core/logging.py` - Structured logging only
-
-### Open/Closed Principle (OCP)
-- `src/core/vector_store/base.py` - Abstract interface for vector stores
-- `src/core/vector_store/chroma.py` - ChromaDB implementation
-- `src/core/vector_store/vertexai.py` - Vertex AI implementation
-- Add new providers without modifying existing code
-
-### Liskov Substitution Principle (LSP)
-- Vector store implementations (`ChromaVectorStore`, `VertexAIVectorStore`) are interchangeable via the base interface
-- Pydantic schemas allow subclassing for specialized validation
-
-### Interface Segregation Principle (ISP)
-- `src/models/schemas.py` - Focused schemas (CourseCreate, CourseUpdate, CourseResponse)
-- No bloated interfaces; each schema has specific purpose
-
-### Dependency Inversion Principle (DIP)
-- API routes depend on abstractions (`src/models/schemas.py`, `src/core/errors.py`)
-- `src/services/rag_service.py` depends on vector store interface, not implementation
-- `src/models/database.py` abstracts database connection details
-
----
-
 ## Testing
-
-Tests use an in-memory SQLite database via `tests/conftest.py`. The fixture sets `DB_PATH` before each test to ensure isolation.
-
-### Manual API Testing with cURL
-
-Before pushing any new features, test the API manually with cURL:
-
-```bash
-# Start the server
-python3 app.py
-
-# Health check
-curl -s http://localhost:5000/api/health
-
-# Get all courses
-curl -s http://localhost:5000/api/courses
-
-# Get courses with filters
-curl -s "http://localhost:5000/api/courses?search=pottery&location=London"
-
-# Get single course
-curl -s http://localhost:5000/api/courses/1
-
-# Create a course
-curl -s -X POST http://localhost:5000/api/courses \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Test Course", "instructor": "John Doe", "location": "London"}'
-
-# Update a course
-curl -s -X PUT http://localhost:5000/api/courses/1 \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Updated Course"}'
-
-# Delete a course
-curl -s -X DELETE http://localhost:5000/api/courses/1
-
-# Semantic search
-curl -s "http://localhost:5000/api/search?q=pottery%20classes"
-
-# Get config
-curl -s http://localhost:5000/api/config
-```
 
 ---
 
