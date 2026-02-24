@@ -2,7 +2,12 @@ import os
 from flask import Blueprint, jsonify, request
 import requests
 
-from src.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, DEV_BYPASS_AUTH
+from src.core.config import (
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_KEY,
+    DEV_BYPASS_AUTH,
+)
 from src.core.errors import AuthenticationError, BadRequestError, handle_exception
 from src.core.logging import api_logger
 
@@ -17,7 +22,11 @@ def login():
         )
 
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        return jsonify({"error": "Supabase not configured"}), 500
+        return jsonify(
+            {
+                "error": "Supabase not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables."
+            }
+        ), 500
 
     data = request.get_json()
     if not data:
@@ -39,7 +48,11 @@ def login():
         response = requests.post(
             f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
             json={"email": email, "password": password},
-            headers={"Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY},
+            headers={
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+            },
         )
 
         if response.status_code != 200:
@@ -77,7 +90,11 @@ def signup():
         )
 
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        return jsonify({"error": "Supabase not configured"}), 500
+        return jsonify(
+            {
+                "error": "Supabase not configured. Please set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY environment variables."
+            }
+        ), 500
 
     data = request.get_json()
     if not data:
@@ -105,7 +122,11 @@ def signup():
         response = requests.post(
             f"{SUPABASE_URL}/auth/v1/signup",
             json={"email": email, "password": password},
-            headers={"Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY},
+            headers={
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+            },
         )
 
         if response.status_code != 200:
