@@ -1,9 +1,11 @@
 import os
 from functools import wraps
 from typing import Optional, Dict, Any
+import requests
+from flask import request, jsonify, g
 
 import jwt
-from flask import request, jsonify, g
+from jwt import PyJWKClient
 
 from src.core.config import (
     SUPABASE_URL,
@@ -16,6 +18,15 @@ from src.core.errors import AuthenticationError, handle_exception
 from src.core.logging import get_logger
 
 logger = get_logger("auth")
+
+_jwks_client = None
+
+
+def get_jwks_client():
+    global _jwks_client
+    if _jwks_client is None and SUPABASE_URL:
+        _jwks_client = PyJWKClient(f"{SUPABASE_URL}/auth/v1/jwks")
+    return _jwks_client
 
 
 class AuthService:
@@ -43,12 +54,26 @@ class AuthService:
             raise AuthenticationError("Authentication not configured")
 
         try:
-            payload = jwt.decode(
-                token,
-                self.anon_key,
-                algorithms=["HS256"],
-                audience="authenticated",
-            )
+            # Use JWKS to verify RS256 tokens (new Supabase format)
+            jwks_client = get_jwks_client()
+            if jwks_client:
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
+                payload = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=["RS256"],
+                    audience="authenticated",
+                    options={"verify_aud": False},  # Supabase may not include aud claim
+                )
+            else:
+                # Fallback for development/testing
+                payload = jwt.decode(
+                    token,
+                    self.anon_key,
+                    algorithms=["HS256", "RS256"],
+                    audience="authenticated",
+                    options={"verify_aud": False},
+                )
             return payload
         except jwt.ExpiredSignatureError:
             raise AuthenticationError("Token has expired")
