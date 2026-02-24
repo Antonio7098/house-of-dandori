@@ -25,6 +25,10 @@ def create_app():
     def login():
         return render_template("login.html")
 
+    @app.route("/signup")
+    def signup():
+        return render_template("signup.html")
+
     @app.route("/api/health", methods=["GET"])
     def health():
         return jsonify({"status": "healthy"})

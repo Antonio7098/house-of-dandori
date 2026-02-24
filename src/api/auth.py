@@ -64,3 +64,68 @@ def login():
 @auth_bp.route("/api/auth/logout", methods=["POST"])
 def logout():
     return jsonify({"message": "Logged out successfully"})
+
+
+@auth_bp.route("/api/auth/signup", methods=["POST"])
+def signup():
+    if DEV_BYPASS_AUTH:
+        return jsonify(
+            {
+                "message": "Account created successfully (dev mode)",
+                "user": {"email": "dev@localhost", "id": "dev_user"},
+            }
+        )
+
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return jsonify({"error": "Supabase not configured"}), 500
+
+    data = request.get_json()
+    if not data:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Request body required")
+        )
+        return jsonify(error_dict), status_code
+
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Email and password required")
+        )
+        return jsonify(error_dict), status_code
+
+    if len(password) < 6:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Password must be at least 6 characters")
+        )
+        return jsonify(error_dict), status_code
+
+    try:
+        response = requests.post(
+            f"{SUPABASE_URL}/auth/v1/signup",
+            json={"email": email, "password": password},
+            headers={"Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY},
+        )
+
+        if response.status_code != 200:
+            api_logger.log_error(
+                Exception(f"Supabase signup failed: {response.text}"), {"email": email}
+            )
+            error_dict, status_code = handle_exception(
+                AuthenticationError("Could not create account")
+            )
+            return jsonify(error_dict), 400
+
+        user_data = response.json()
+
+        return jsonify(
+            {
+                "message": "Account created successfully. Please check your email to verify.",
+                "user": user_data.get("user"),
+            }
+        )
+
+    except Exception as e:
+        api_logger.log_error(e, {"email": email})
+        return jsonify({"error": "Signup failed"}), 500

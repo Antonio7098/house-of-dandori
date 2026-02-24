@@ -460,9 +460,117 @@ Get current configuration.
 ```json
 {
   "environment": "development",
-  "vectorStoreProvider": "chroma"
+  "vectorStoreProvider": "chroma",
+  "authEnabled": false,
+  "supabaseConfigured": false
 }
 ```
+
+---
+
+## Authentication
+
+The API uses Supabase JWT authentication. In development mode, authentication is bypassed.
+
+### Pages
+
+| Route | Description |
+|-------|-------------|
+| `/login` | Login page |
+| `/signup` | Create account page |
+
+### Endpoints
+
+#### POST /api/auth/login
+
+Authenticate user and get JWT token.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| email | string | Yes | User email |
+| password | string | Yes | User password |
+
+**Response (200):**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "user-uuid",
+    "email": "user@example.com"
+  }
+}
+```
+
+**Dev mode response:**
+```json
+{
+  "token": "dev_token",
+  "user": {"email": "dev@localhost", "id": "dev_user"}
+}
+```
+
+---
+
+#### POST /api/auth/signup
+
+Create a new user account.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| email | string | Yes | User email |
+| password | string | Yes | Password (min 6 chars) |
+
+**Response (200):**
+```json
+{
+  "message": "Account created successfully. Please check your email to verify.",
+  "user": {
+    "id": "user-uuid",
+    "email": "user@example.com"
+  }
+}
+```
+
+---
+
+#### POST /api/auth/logout
+
+Logout user (client-side token removal).
+
+**Response (200):**
+```json
+{
+  "message": "Logged out successfully"
+}
+```
+
+### Using Authenticated Requests
+
+Include the JWT token in the `Authorization` header:
+
+```bash
+curl -X POST http://localhost:5000/api/courses \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{"title": "New Course"}'
+```
+
+### Protected Endpoints
+
+The following endpoints require authentication in production:
+
+- `POST /api/courses` - Create course
+- `PUT /api/courses/{id}` - Update course
+- `DELETE /api/courses/{id}` - Delete course
+- `POST /api/courses/bulk` - Bulk get courses
+- `POST /api/upload` - Upload PDF
+- `POST /api/upload/batch` - Batch upload PDFs
+- `POST /api/index` - Index courses
+- `POST /api/reindex` - Reindex courses
 
 ---
 

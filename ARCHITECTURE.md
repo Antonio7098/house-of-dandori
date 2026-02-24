@@ -34,13 +34,14 @@ The School of Dandori course management platform is built with a layered archite
 │   ├── api/
 │   │   ├── app.py          # Flask app factory
 │   │   ├── routes.py       # Course CRUD endpoints
-│   │   └── search.py       # Vector search endpoints
+│   │   ├── search.py       # Vector search endpoints
+│   │   └── auth.py        # Authentication endpoints
 │   │
 │   ├── core/
 │   │   ├── config.py       # Configuration & environment
 │   │   ├── errors.py       # Error taxonomy & custom exceptions
 │   │   ├── logging.py      # Structured logging
-│   │   ├── auth.py        # Supabase JWT authentication
+│   │   ├── auth.py         # JWT authentication service
 │   │   ├── utils.py        # Utility functions
 │   │   └── vector_store/
 │   │       ├── base.py     # Vector store interface
@@ -56,7 +57,9 @@ The School of Dandori course management platform is built with a layered archite
 │       └── rag_service.py  # Vector search abstraction
 │
 ├── templates/
-│   └── index.html          # Main UI
+│   ├── index.html          # Main UI
+│   ├── login.html         # Login page
+│   └── signup.html        # Signup page
 │
 └── tests/
     ├── conftest.py         # Test fixtures
