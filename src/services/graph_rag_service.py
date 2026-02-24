@@ -171,11 +171,13 @@ def build_course_chunks(courses: List[dict]) -> List[dict]:
             {
                 "id": chunk_id,
                 "text": text,
-                "metadata": {
-                    "course_id": course.get("id"),
-                    "class_id": course.get("class_id"),
-                    "title": title,
-                },
+                "metadata": _sanitize_metadata(
+                    {
+                        "course_id": course.get("id"),
+                        "class_id": course.get("class_id"),
+                        "title": title,
+                    }
+                ),
             }
         )
 

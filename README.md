@@ -85,7 +85,7 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | POST | `/api/upload` | Upload single PDF to extract course |
 | POST | `/api/upload/batch` | Upload multiple PDFs |
 | GET | `/api/search` | Semantic vector search |
-| GET | `/api/graph-search` | GraphRAG hybrid search |
+| GET | `/api/graph-search` | GraphRAG hybrid search (returns KG + chunks only) |
 | POST | `/api/index` | Index courses to vector store |
 | POST | `/api/graph-index` | Index courses for GraphRAG |
 | POST | `/api/reindex` | Reindex all courses |
@@ -102,4 +102,18 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | None |
 | `GRAPH_RAG_KG_COLLECTION` | Chroma collection name for KG triples | `graph_kg_triples` |
 | `GRAPH_RAG_CHUNK_COLLECTION` | Chroma collection name for course chunks | `graph_course_chunks` |
-| `GRAPH_RAG_LLM_MODEL` | LLM model for GraphRAG answers | `openai/gpt-4o-mini` |
+
+### GraphRAG Enrichment Overview
+
+GraphRAG indexing mirrors `graph_rag_analysis.ipynb`:
+
+1. **Base triples**: `has_instructor`, `is_of_type`, `taught_at`.
+2. **Narrative chunks**: consolidated course metadata (skills, objectives, materials, descriptions).
+3. **Advanced NLP**:
+   - Token frequency + coverage filtering (noise tokens like `skill` removed).
+   - Flexible n-gram mining across sliding windows.
+   - Phrase candidates (`Creative Cooking`, `Wildlife Conservation`, etc.).
+   - KMeans clustering (scikit-learn) to map tokens/phrases into five themes.
+4. **Enriched predicates**: Courses get `teaches_concept`, `develops_proficiency_in`, `provides_material`, and `belongs_to_theme`. Clustered phrases also receive `belongs_to_theme` edges.
+
+`/api/graph-search` now returns only retrieval payloads; downstream chat endpoints handle any LLM generation.
