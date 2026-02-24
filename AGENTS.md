@@ -34,7 +34,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full tech stack details.
    python3 -m pytest tests/ -v
    ```
 
-2. **Test new features with cURL** - Start the server (`python3 app.py`) and test your endpoints manually
+2. **Test new features with cURL** - Start the server (`python3 app.py`) and local db (`docker compose up -d`) test your endpoints manually
 
 3. **Update documentation** if you've made changes that affect:
    - API endpoints (update README.md)

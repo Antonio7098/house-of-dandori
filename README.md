@@ -32,7 +32,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Start local PostgreSQL with Docker
-docker-compose up -d
+docker compose up -d
 
 # Configure environment
 cp .env.docker .env.local

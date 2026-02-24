@@ -18,7 +18,9 @@ from src.core.errors import (
     BadRequestError,
     handle_exception,
 )
-from src.core.logging import api_logger
+from src.core.logging import api_logger, get_logger
+
+logger = get_logger("routes")
 from src.core.utils import to_json, parse_json_fields
 from src.models.database import get_db_connection, extract_returning_id
 from src.models.schemas import (
@@ -48,7 +50,7 @@ def extract_from_pdf(file_data, filename=None):
             text += page.extract_text()
         return extractor._parse_course_data(text, filename)
     except Exception as e:
-        print(f"PDF extraction error: {e}")
+        logger.error(f"PDF extraction error: {e}")
         return None
 
 

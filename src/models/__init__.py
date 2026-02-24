@@ -7,7 +7,10 @@ from typing import Dict, Optional
 import PyPDF2
 
 from src.core.utils import clean_location, text_to_list
+from src.core.logging import get_logger
 from src.models.database import DatabaseManager
+
+logger = get_logger("models")
 
 __all__ = ["CourseExtractor", "DatabaseManager"]
 
@@ -22,7 +25,7 @@ class CourseExtractor:
                     text += page.extract_text()
                 return self._parse_course_data(text, pdf_path)
         except Exception as e:
-            print(f"Error processing {pdf_path}: {e}")
+            logger.error(f"Error processing {pdf_path}: {e}")
             return None
 
     def _parse_course_data(self, text: str, pdf_path: str) -> Dict:
