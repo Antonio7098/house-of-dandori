@@ -93,6 +93,24 @@ def logout():
     return jsonify({"message": "Logged out successfully"})
 
 
+@auth_bp.route("/api/auth/profile", methods=["GET"])
+def get_profile():
+    from src.core.auth import auth_service
+
+    if auth_service.dev_bypass:
+        return jsonify({"user": {"email": "dev@localhost", "id": "dev_user"}})
+
+    token = auth_service.get_token_from_header()
+    if not token:
+        return jsonify({"error": "No token provided"}), 401
+
+    try:
+        user = auth_service.verify_token(token)
+        return jsonify({"user": user})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 401
+
+
 @auth_bp.route("/api/auth/signup", methods=["POST"])
 def signup():
     if DEV_BYPASS_AUTH:

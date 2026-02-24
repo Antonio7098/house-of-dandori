@@ -99,27 +99,29 @@ class OpenRouterEmbedder(EmbeddingFunction):
 
 
 class ChromaDBProvider(VectorStoreProvider):
-    def __init__(self, collection_name: str = "courses", persist_dir: str = None):
+    def __init__(
+        self,
+        collection_name: str = "courses",
+        persist_dir: str | None = None,
+        embedding_model: str = "google/gemini-embedding-001",
+    ):
         api_key = os.environ.get("OPENROUTER_API_KEY")
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable is required")
 
         embedder = OpenRouterEmbedder(
             api_key=api_key,
-            model="google/gemini-embedding-001",
+            model=embedding_model,
         )
 
         if persist_dir:
             self.client = chromadb.PersistentClient(path=persist_dir)
         else:
             self.client = chromadb.Client()
-        self.collection = self.client.get_or_create_collection(
-            name=collection_name, embedding_function=embedder
-        )
 
-        self.client = chromadb.PersistentClient(path=persist_dir)
         self.collection = self.client.get_or_create_collection(
-            name=collection_name, embedding_function=embedder
+            name=collection_name,
+            embedding_function=embedder,
         )
 
     def add(self, ids: list[str], documents: list[str], metadatas: list[dict]) -> None:

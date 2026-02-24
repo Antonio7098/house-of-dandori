@@ -249,6 +249,13 @@
             font-size: 14px;
         }
         .logout-btn:hover { background: #5a6268; }
+        .profile-link {
+            padding: 10px 15px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .profile-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -367,7 +374,10 @@
         function updateAuthUI(isLoggedIn) {
             const authSection = document.getElementById('authSection');
             if (isLoggedIn) {
-                authSection.innerHTML = '<button class="logout-btn" onclick="logout()">Logout</button>';
+                authSection.innerHTML = `
+                    <a href="/profile" class="profile-link">Profile</a>
+                    <button class="logout-btn" onclick="logout()">Logout</button>
+                `;
             } else {
                 authSection.innerHTML = '<button class="login-btn" onclick="window.location.href=\'/login\'">Login</button>';
             }
