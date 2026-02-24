@@ -12,7 +12,7 @@ from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
 
 from src.core.utils import parse_json_fields
-from src.services.rag_service import VectorStoreFactory
+from src.services.rag_service import VectorStoreFactory, ensure_chroma_persist_dir
 
 Predicate = Dict[str, str]
 
@@ -330,13 +330,17 @@ def build_enriched_triples(courses: List[dict]) -> List[dict]:
     term_clusters = analytics["term_clusters"]
 
     triples: List[dict] = []
-    seen: set[Tuple[str, str, str]] = set()
+    seen_ids: set[str] = set()
 
     def append_triple(subject: str, predicate: str, obj: str, metadata: Optional[dict] = None) -> None:
-        key = (subject, predicate, obj)
-        if subject and obj and key not in seen:
-            triples.append(_triple_payload(subject, predicate, obj, metadata))
-            seen.add(key)
+        if not subject or not obj:
+            return
+        payload = _triple_payload(subject, predicate, obj, metadata)
+        triple_id = payload["id"]
+        if triple_id in seen_ids:
+            return
+        seen_ids.add(triple_id)
+        triples.append(payload)
 
     for record in records:
         course = record["course"]
@@ -379,13 +383,14 @@ def build_enriched_triples(courses: List[dict]) -> List[dict]:
 class GraphRAGService:
     DEFAULT_KG_COLLECTION = "graph_kg_triples"
     DEFAULT_CHUNK_COLLECTION = "graph_course_chunks"
+    DEFAULT_BATCH_SIZE = 2000
 
     def __init__(self, provider: Optional[str] = None):
         self.provider_name = provider or os.environ.get("VECTOR_STORE_PROVIDER", "chroma")
         if self.provider_name != "chroma":
             raise ValueError("GraphRAG is currently supported only with the Chroma provider")
 
-        persist_dir = os.environ.get("CHROMA_PERSIST_DIR")
+        persist_dir = os.environ.get("CHROMA_PERSIST_DIR") or ensure_chroma_persist_dir()
         kg_collection = os.environ.get("GRAPH_RAG_KG_COLLECTION", self.DEFAULT_KG_COLLECTION)
         chunk_collection = os.environ.get(
             "GRAPH_RAG_CHUNK_COLLECTION", self.DEFAULT_CHUNK_COLLECTION
@@ -405,6 +410,14 @@ class GraphRAGService:
             collection_name=chunk_collection,
             **provider_kwargs,
         )
+        batch_env = os.environ.get("GRAPH_RAG_BATCH_SIZE")
+        if batch_env:
+            try:
+                self.batch_size = max(1, int(batch_env))
+            except ValueError:
+                self.batch_size = self.DEFAULT_BATCH_SIZE
+        else:
+            self.batch_size = self.DEFAULT_BATCH_SIZE
 
     def index_courses(self, courses: List[dict]) -> Dict[str, int]:
         kg_triples = build_kg_triples(courses)
@@ -430,20 +443,24 @@ class GraphRAGService:
             "chunks": self._shape_results(chunk_results),
         }
 
-    @staticmethod
-    def _replace_collection(store, payload: List[dict]) -> None:
+    def _replace_collection(self, store, payload: List[dict]) -> None:
         if not payload:
             return
         ids = [item["id"] for item in payload]
+        documents = [item["text"] for item in payload]
+        metadatas = [item["metadata"] for item in payload]
         try:
             store.delete(ids)
         except Exception:
             pass
-        store.add(
-            ids=ids,
-            documents=[item["text"] for item in payload],
-            metadatas=[item["metadata"] for item in payload],
-        )
+
+        for start in range(0, len(ids), self.batch_size):
+            end = start + self.batch_size
+            store.add(
+                ids=ids[start:end],
+                documents=documents[start:end],
+                metadatas=metadatas[start:end],
+            )
 
     @staticmethod
     def _shape_results(results: dict) -> Dict[str, Any]:

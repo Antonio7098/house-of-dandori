@@ -140,6 +140,80 @@
         .delete-btn { background: #dc3545; color: white; }
         .delete-btn:hover { background: #c82333; }
         
+        .graph-results {
+            margin-top: 25px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e2e2;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            padding: 20px;
+        }
+        .graph-results.hidden { display: none; }
+        .graph-results__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 10px;
+            margin-bottom: 16px;
+        }
+        .graph-results__header h3 {
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        .graph-results__header span { color: #8e44ad; }
+        .graph-results__close {
+            background: transparent;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .graph-results__content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+        }
+        .graph-results__column h4 {
+            color: #4caf50;
+            margin-bottom: 10px;
+        }
+        .graph-results__column ul {
+            list-style: none;
+            padding-left: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .graph-results__tag {
+            display: inline-block;
+            background: rgba(78, 205, 196, 0.15);
+            color: #26a69a;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        .graph-results__triple {
+            border-left: 3px solid #8e44ad;
+            padding-left: 12px;
+            font-size: 14px;
+            color: #444;
+        }
+        .graph-results__chunk {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: #555;
+            border: 1px solid #eee;
+        }
+        .graph-search-btn {
+            background: #8e44ad;
+        }
+        .graph-search-btn:hover { background: #703688; }
+        
         .modal {
             display: none;
             position: fixed;
@@ -284,10 +358,12 @@
             </select>
             <button onclick="searchCourses()">Search</button>
             <button onclick="semanticSearch()" id="vectorSearchBtn" class="vector-search-btn" style="background: #4caf50;">Vector Search</button>
+            <button onclick="graphSearch()" id="graphSearchBtn" class="graph-search-btn">Graph Search</button>
             <button class="add-btn" onclick="openAddModal()">+ Add Course</button>
         </div>
         
         <div class="course-grid" id="courseGrid"></div>
+        <div class="graph-results hidden" id="graphResultsPanel"></div>
         
         <div class="pagination-info" id="paginationInfo"></div>
         <div class="load-more-container" id="loadMoreContainer">
@@ -365,10 +441,21 @@
         let currentResults = [];
         let vectorSearchEnabled = true;
         let authEnabled = false;
+        let lastGraphResults = null;
         
         function getAuthHeaders() {
             const token = localStorage.getItem('authToken');
             return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
         
         function updateAuthUI(isLoggedIn) {
@@ -381,6 +468,85 @@
             } else {
                 authSection.innerHTML = '<button class="login-btn" onclick="window.location.href=\'/login\'">Login</button>';
             }
+        }
+
+        function clearGraphResults() {
+            const panel = document.getElementById('graphResultsPanel');
+            panel.classList.add('hidden');
+            panel.innerHTML = '';
+            lastGraphResults = null;
+        }
+
+        async function graphSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            const panel = document.getElementById('graphResultsPanel');
+            panel.classList.remove('hidden');
+            panel.innerHTML = '<p style="color:#666;">Fetching graph insights...</p>';
+
+            try {
+                const url = `/api/graph-search?q=${encodeURIComponent(query)}&k_kg=5&k_chunks=3`;
+                const response = await fetch(url);
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Graph search failed');
+                }
+                lastGraphResults = data;
+                renderGraphResults(data);
+            } catch (error) {
+                console.error('Graph search error:', error);
+                panel.innerHTML = `<div class="graph-results__error">${escapeHtml(error.message || 'Graph search failed')}</div>`;
+            }
+        }
+
+        function renderGraphResults(result) {
+            const panel = document.getElementById('graphResultsPanel');
+            const kgDocs = (result.kg && result.kg.documents) || [];
+            const kgMetas = (result.kg && result.kg.metadatas) || [];
+            const chunkDocs = (result.chunks && result.chunks.documents) || [];
+
+            const triplesMarkup = kgDocs.length
+                ? `<ul>${kgDocs
+                      .map((doc, idx) => {
+                          const meta = kgMetas[idx] || {};
+                          const predicate = meta.predicate ? meta.predicate.replace(/_/g, ' ') : '';
+                          return `<li class="graph-results__triple"><span class="graph-results__tag">${escapeHtml(predicate || 'triple')}</span>${escapeHtml(doc)}</li>`;
+                      })
+                      .join('')}</ul>`
+                : '<p>No knowledge graph triples matched this query.</p>';
+
+            const chunkMarkup = chunkDocs.length
+                ? `<ul>${chunkDocs
+                      .map(
+                          (text) =>
+                              `<li class="graph-results__chunk">${escapeHtml(text.length > 400 ? `${text.slice(0, 400)}…` : text)}</li>`
+                      )
+                      .join('')}</ul>`
+                : '<p>No narrative chunks matched this query.</p>';
+
+            panel.innerHTML = `
+                <div class="graph-results__header">
+                    <div>
+                        <h3>Graph insights for "<span>${escapeHtml(result.query)}</span>"</h3>
+                        <small>${kgDocs.length} triples · ${chunkDocs.length} context chunks</small>
+                    </div>
+                    <button class="graph-results__close" onclick="clearGraphResults()">Clear</button>
+                </div>
+                <div class="graph-results__content">
+                    <div class="graph-results__column">
+                        <h4>Knowledge Graph Triples</h4>
+                        ${triplesMarkup}
+                    </div>
+                    <div class="graph-results__column">
+                        <h4>Supporting Chunks</h4>
+                        ${chunkMarkup}
+                    </div>
+                </div>
+            `;
         }
         
         function logout() {
@@ -397,9 +563,12 @@
                 authEnabled = data.authEnabled;
                 
                 const vectorBtn = document.getElementById('vectorSearchBtn');
+                const graphBtn = document.getElementById('graphSearchBtn');
                 if (env === 'production') {
                     vectorBtn.disabled = true;
                     vectorBtn.setAttribute('data-tooltip', 'Vector search uses persistent storage in production');
+                    graphBtn.disabled = true;
+                    graphBtn.setAttribute('data-tooltip', 'Graph search disabled in production');
                 }
             } catch (e) {
                 console.error('Failed to load config:', e);
@@ -423,6 +592,7 @@
 
                 allCourses = data.courses;
                 isVectorSearch = false;
+                clearGraphResults();
                 displayCourses(data.courses, false);
                 updatePaginationControls(data.count, data.page, data.total_pages);
                 populateFilters(allCourses);
@@ -484,6 +654,7 @@
                 const response = await fetch(`/api/courses?${params}`);
                 const data = await response.json();
                 isVectorSearch = false;
+                clearGraphResults();
                 displayCourses(data.courses, false);
                 updatePaginationControls(data.count, data.page, data.total_pages);
             } catch (error) {
@@ -650,6 +821,7 @@
                 const data = await response.json();
 
                 isVectorSearch = true;
+                clearGraphResults();
                 if (data.results && data.results.length > 0) {
                     displayCourses(data.results, true);
                     updatePaginationControls(data.count, data.page, data.total_pages);

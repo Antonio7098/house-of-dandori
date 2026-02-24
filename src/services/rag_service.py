@@ -1,6 +1,20 @@
 import os
+from pathlib import Path
 
 from src.core.vector_store.base import VectorStoreProvider
+
+
+def ensure_chroma_persist_dir() -> str:
+    """Ensure a persistent directory is available for Chroma collections."""
+    persist_dir = os.environ.get("CHROMA_PERSIST_DIR")
+    if persist_dir:
+        Path(persist_dir).mkdir(parents=True, exist_ok=True)
+        return persist_dir
+
+    default_dir = Path(__file__).resolve().parent.parent.parent / "chroma_data"
+    default_dir.mkdir(parents=True, exist_ok=True)
+    os.environ["CHROMA_PERSIST_DIR"] = str(default_dir)
+    return str(default_dir)
 
 
 class VectorStoreFactory:
@@ -34,6 +48,8 @@ class RAGService:
         self.provider_name = provider or os.environ.get(
             "VECTOR_STORE_PROVIDER", "chroma"
         )
+        if "persist_dir" not in provider_kwargs:
+            provider_kwargs["persist_dir"] = ensure_chroma_persist_dir()
         self.vector_store: VectorStoreProvider = VectorStoreFactory.create(
             self.provider_name, **provider_kwargs
         )

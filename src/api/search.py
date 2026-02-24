@@ -26,6 +26,8 @@ def get_config():
 
 
 rag_service = None
+graph_rag_service = None
+graph_rag_provider = None
 
 
 def get_rag():
@@ -36,6 +38,17 @@ def get_rag():
         provider = request.args.get("provider")
         rag_service = get_rag_service(provider)
     return rag_service
+
+
+def get_graph_rag():
+    global graph_rag_service, graph_rag_provider
+    provider = request.args.get("provider")
+    if graph_rag_service is None or (provider and provider != graph_rag_provider):
+        from src.services.graph_rag_service import get_graph_rag_service
+
+        graph_rag_service = get_graph_rag_service(provider)
+        graph_rag_provider = provider
+    return graph_rag_service
 
 
 @search_bp.route("/api/search", methods=["GET"])
@@ -125,7 +138,6 @@ def graph_search():
     query = request.args.get("q", "")
     k_kg = int(request.args.get("k_kg", 5))
     k_chunks = int(request.args.get("k_chunks", 5))
-    include_answer = request.args.get("answer", "false").lower() == "true"
 
     if not query:
         error_dict, status_code = handle_exception(
@@ -134,15 +146,12 @@ def graph_search():
         return jsonify(error_dict), status_code
 
     try:
-        from src.services.graph_rag_service import get_graph_rag_service
-        provider = request.args.get("provider")
-        graph_rag = get_graph_rag_service(provider)
+        graph_rag = get_graph_rag()
         
         results = graph_rag.hybrid_search(
             query=query,
             k_kg=k_kg,
             k_chunks=k_chunks,
-            include_answer=include_answer,
         )
         
         api_logger.log_request(
@@ -154,7 +163,6 @@ def graph_search():
                 "q": query,
                 "k_kg": k_kg,
                 "k_chunks": k_chunks,
-                "answer": include_answer
             },
         )
         return jsonify(results)
@@ -207,8 +215,7 @@ def graph_index_courses():
         if not courses:
             return jsonify({"message": "No courses to index", "count": 0})
 
-        from src.services.graph_rag_service import get_graph_rag_service
-        graph_rag = get_graph_rag_service()
+        graph_rag = get_graph_rag()
         counts = graph_rag.index_courses(courses)
         
         api_logger.log_request(
