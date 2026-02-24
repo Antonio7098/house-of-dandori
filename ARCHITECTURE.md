@@ -38,6 +38,8 @@ The School of Dandori course management platform is built with a layered archite
 │   │
 │   ├── core/
 │   │   ├── config.py       # Configuration & environment
+│   │   ├── errors.py       # Error taxonomy & custom exceptions
+│   │   ├── logging.py      # Structured logging
 │   │   ├── utils.py        # Utility functions
 │   │   └── vector_store/
 │   │       ├── base.py     # Vector store interface
@@ -46,6 +48,7 @@ The School of Dandori course management platform is built with a layered archite
 │   │
 │   ├── models/
 │   │   ├── database.py     # Database operations
+│   │   ├── schemas.py      # Pydantic validation schemas
 │   │   └── __init__.py     # Course extraction from PDFs
 │   │
 │   └── services/
@@ -76,11 +79,14 @@ The School of Dandori course management platform is built with a layered archite
 
 3. **Core Layer** (`src/core/`)
    - Configuration management
+   - Error taxonomy & custom exceptions
+   - Structured logging
    - Vector store providers (abstract interface + implementations)
    - Utility functions
 
 4. **Model Layer** (`src/models/`)
    - Database operations
+   - Pydantic validation schemas
    - Data extraction/transformation
 
 ### Key Patterns
