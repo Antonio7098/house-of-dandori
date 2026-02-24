@@ -2,7 +2,10 @@ import os
 from flask import Blueprint, jsonify, request
 
 from src.core.utils import parse_json_fields
+from src.core.errors import BadRequestError, handle_exception
+from src.core.logging import api_logger
 from src.models.database import get_db_connection
+from src.models.schemas import SearchQuery
 
 search_bp = Blueprint("search", __name__)
 
@@ -39,7 +42,10 @@ def semantic_search():
     offset = (page - 1) * limit
 
     if not query:
-        return jsonify({"error": "Query parameter 'q' is required"}), 400
+        error_dict, status_code = handle_exception(
+            BadRequestError("Query parameter 'q' is required")
+        )
+        return jsonify(error_dict), status_code
 
     try:
         rag = get_rag()
@@ -88,6 +94,13 @@ def semantic_search():
                 )
                 ordered_results.append(course)
 
+        api_logger.log_request(
+            method="GET",
+            path="/api/search",
+            status_code=200,
+            duration_ms=0,
+            params={"q": query, "page": page, "n": limit},
+        )
         return jsonify(
             {
                 "results": ordered_results,
@@ -98,7 +111,9 @@ def semantic_search():
             }
         )
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        api_logger.log_error(e, {"path": "/api/search", "method": "GET"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
 
 
 @search_bp.route("/api/index", methods=["POST"])

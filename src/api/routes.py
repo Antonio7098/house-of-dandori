@@ -7,11 +7,28 @@ from typing import Optional
 
 import PyPDF2
 from flask import Blueprint, jsonify, request, send_file
+from pydantic import ValidationError
 from werkzeug.utils import secure_filename
 
 from src.core.config import ALLOWED_EXTENSIONS
+from src.core.errors import (
+    NotFoundError,
+    DatabaseError,
+    FileProcessingError,
+    BadRequestError,
+    handle_exception,
+)
+from src.core.logging import api_logger
 from src.core.utils import to_json, parse_json_fields
 from src.models.database import get_db_connection, extract_returning_id
+from src.models.schemas import (
+    CourseCreate,
+    CourseUpdate,
+    CourseResponse,
+    CourseListResponse,
+    BulkCourseRequest,
+    SearchQuery,
+)
 
 courses_bp = Blueprint("courses", __name__)
 
@@ -110,6 +127,13 @@ def get_courses():
         cursor.execute(query, params)
         courses = [parse_json_fields(c) for c in cursor.fetchall()]
 
+        api_logger.log_request(
+            method="GET",
+            path="/api/courses",
+            status_code=200,
+            duration_ms=0,
+            params={"search": search, "location": location, "course_type": course_type},
+        )
         return jsonify(
             {
                 "count": total,
@@ -120,7 +144,9 @@ def get_courses():
             }
         )
     except Exception as e:
-        return jsonify({"error": f"Failed to fetch courses: {str(e)}"}), 500
+        api_logger.log_error(e, {"path": "/api/courses", "method": "GET"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
     finally:
         if conn:
             conn.close()
@@ -168,24 +194,49 @@ def get_course(course_id):
     use_postgres = bool(os.environ.get("DATABASE_URL"))
     placeholder = "%s" if use_postgres else "?"
 
-    cursor.execute(f"SELECT * FROM courses WHERE id = {placeholder}", (course_id,))
-    course = cursor.fetchone()
-    conn.close()
+    try:
+        cursor.execute(f"SELECT * FROM courses WHERE id = {placeholder}", (course_id,))
+        course = cursor.fetchone()
+        conn.close()
 
-    if course:
-        return jsonify(parse_json_fields(course))
-    return jsonify({"error": "Course not found"}), 404
+        if course:
+            api_logger.log_request(
+                method="GET",
+                path=f"/api/courses/{course_id}",
+                status_code=200,
+                duration_ms=0,
+            )
+            return jsonify(parse_json_fields(course))
+        api_logger.log_request(
+            method="GET",
+            path=f"/api/courses/{course_id}",
+            status_code=404,
+            duration_ms=0,
+        )
+        error_dict, status_code = handle_exception(NotFoundError("Course", course_id))
+        return jsonify(error_dict), status_code
+    except Exception as e:
+        api_logger.log_error(e, {"path": f"/api/courses/{course_id}", "method": "GET"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
 
 
 @courses_bp.route("/api/courses", methods=["POST"])
 def create_course():
     data = request.json
+
+    try:
+        validated_data = CourseCreate(**(data or {}))
+    except ValidationError as e:
+        error_dict, _ = handle_exception(BadRequestError(str(e)))
+        return jsonify(error_dict), 400
+
     use_postgres = bool(os.environ.get("DATABASE_URL"))
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    class_id = (data.get("class_id") or "").strip()
+    class_id = (validated_data.class_id or "").strip()
     if class_id:
         filename = f"{class_id}_{uuid.uuid4().hex[:8]}.pdf"
     else:
@@ -202,15 +253,15 @@ def create_course():
                 RETURNING id""",
                 (
                     class_id or None,
-                    data.get("title"),
-                    data.get("instructor"),
-                    data.get("location"),
-                    data.get("course_type"),
-                    data.get("cost"),
-                    to_json(data.get("learning_objectives")),
-                    to_json(data.get("provided_materials")),
-                    to_json(data.get("skills")),
-                    data.get("description"),
+                    validated_data.title,
+                    validated_data.instructor,
+                    validated_data.location,
+                    validated_data.course_type,
+                    validated_data.cost,
+                    to_json(validated_data.learning_objectives),
+                    to_json(validated_data.provided_materials),
+                    to_json(validated_data.skills),
+                    validated_data.description,
                     filename,
                 ),
             )
@@ -224,23 +275,34 @@ def create_course():
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     class_id or None,
-                    data.get("title"),
-                    data.get("instructor"),
-                    data.get("location"),
-                    data.get("course_type"),
-                    data.get("cost"),
-                    to_json(data.get("learning_objectives")),
-                    to_json(data.get("provided_materials")),
-                    to_json(data.get("skills")),
-                    data.get("description"),
+                    validated_data.title,
+                    validated_data.instructor,
+                    validated_data.location,
+                    validated_data.course_type,
+                    validated_data.cost,
+                    to_json(validated_data.learning_objectives),
+                    to_json(validated_data.provided_materials),
+                    to_json(validated_data.skills),
+                    validated_data.description,
                     filename,
                 ),
             )
             course_id = cursor.lastrowid
         conn.commit()
         conn.close()
+        api_logger.log_request(
+            method="POST",
+            path="/api/courses",
+            status_code=201,
+            duration_ms=0,
+            course_id=course_id,
+        )
         return jsonify({"id": course_id, "message": "Course created"}), 201
     except Exception as e:
+        api_logger.log_error(e, {"path": "/api/courses", "method": "POST"})
+        conn.close()
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
         conn.close()
         return jsonify({"error": str(e)}), 400
 
