@@ -25,15 +25,6 @@ def reindex_on_startup():
         except ValueError:
             sample_size = None
 
-    if env == "production":
-        os.environ["VECTOR_STORE_PROVIDER"] = "vertexai"
-        print(
-            "Production mode: using Vertex AI Vector Search (no startup reindex needed)"
-        )
-        return
-    else:
-        os.environ["VECTOR_STORE_PROVIDER"] = "chroma"
-
     if not enabled:
         print("Startup reindex disabled via REINDEX_ON_STARTUP")
         return

@@ -12,8 +12,8 @@ The School of Dandori course management platform is built with a layered archite
 - **Database**: PostgreSQL (hosted on Supabase)
 - **Vector Store**: 
   - ChromaDB (local development)
-  - Vertex AI Vector Search (production)
-- **Embeddings**: OpenRouter API (google/gemini-embedding-001)
+  - Vertex AI Vector Search 2.0 with Collections (production)
+- **Embeddings**: Vertex AI text-embedding-005
 - **Deployment**: Google Cloud Run
 - **PDF Processing**: PyPDF2
 
@@ -170,17 +170,33 @@ CREATE TABLE courses (
 ### Providers
 
 - **ChromaDB**: Local development (in-memory or file-based)
-- **Vertex AI Vector Search**: Production deployment
+- **Vertex AI Vector Search 2.0**: Production deployment using Collections API
+  - V2 API uses Collections to store Data Objects with vectors, metadata, and content together
+  - Simpler unified data model compared to V1 (Index/Endpoint)
+  - Supports advanced filtering with dict-based query syntax
 
 ### Embeddings
 
-- **Provider**: OpenRouter API
-- **Model**: google/gemini-embedding-001
+- **Provider**: Vertex AI
+- **Model**: text-embedding-005 (768 dimensions)
 - **Usage**: Semantic search for course matching
+
+### API Versions
+
+The Vertex AI provider supports both V1 (legacy) and V2 (recommended) APIs:
+
+- **V2 (Collections)**: Set `VERTEX_AI_API_VERSION=v2` and provide `VERTEX_AI_COLLECTION_ID`
+  - Unified data model with vectors, metadata, and content in one place
+  - Dict-based filtering: `{"location": {"$eq": "London"}}`
+  - Simpler setup and management
+  
+- **V1 (Index/Endpoint)**: Legacy support for existing deployments
+  - Requires `VERTEX_AI_INDEX_ID` and `VERTEX_AI_INDEX_ENDPOINT_ID`
+  - Separate document storage required
 
 ### Lazy Loading
 
-Vector store providers are lazy-loaded to reduce memory usage. In development mode, ChromaDB is used with in-memory storage and reindexes on startup. In production, Vertex AI Vector Search is used with persistent storage (no startup reindex needed).
+Vector store providers are lazy-loaded to reduce memory usage. In development mode, ChromaDB is used with in-memory storage and reindexes on startup. In production, Vertex AI Vector Search 2.0 is used with persistent Collections (no startup reindex needed).
 
 ---
 
@@ -209,10 +225,16 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (local) |
 | `DB_PATH` | SQLite database path | `courses.db` |
-| `OPENROUTER_API_KEY` | API key for embeddings | Required |
+| `OPENROUTER_API_KEY` | API key for embeddings (ChromaDB only) | Required for ChromaDB |
 | `ENVIRONMENT` | `development` or `production` | `development` |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
 | `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | None |
+| `GCP_PROJECT_ID` | Google Cloud project ID | Required for Vertex AI |
+| `GCP_LOCATION` | GCP region (e.g., europe-west2) | `us-central1` |
+| `VERTEX_AI_API_VERSION` | `v2` (Collections) or `v1` (Index/Endpoint) | `v1` |
+| `VERTEX_AI_COLLECTION_ID` | Collection ID for V2 API | Required for V2 |
+| `VERTEX_AI_INDEX_ID` | Index ID for V1 API (legacy) | Required for V1 |
+| `VERTEX_AI_INDEX_ENDPOINT_ID` | Endpoint ID for V1 API (legacy) | Required for V1 |
 | `GRAPH_RAG_KG_COLLECTION` | Chroma collection name for KG triples | `graph_kg_triples` |
 | `GRAPH_RAG_CHUNK_COLLECTION` | Chroma collection name for course chunks | `graph_course_chunks` |
 | `GRAPH_RAG_LLM_MODEL` | LLM model for GraphRAG answers | `openai/gpt-4o-mini` |

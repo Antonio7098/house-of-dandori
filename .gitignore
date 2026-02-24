@@ -14,3 +14,7 @@ gcs-key.json
 None/
 *.ipynb
 .chroma/
+
+# Google Cloud SDK (installed locally)
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz
