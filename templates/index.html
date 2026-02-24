@@ -227,11 +227,38 @@
             color: #666;
             font-size: 14px;
         }
+        .login-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .login-btn:hover { background: #5568d3; }
+        .logout-btn {
+            padding: 10px 20px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .logout-btn:hover { background: #5a6268; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎓 School of Dandori - Course Manager</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1>🎓 School of Dandori - Course Manager</h1>
+            <div id="authSection">
+                <button class="login-btn" id="loginBtn" onclick="window.location.href='/login'">Login</button>
+            </div>
+        </div>
         
         <div class="upload-section">
             <h3>📤 Upload PDFs</h3>
@@ -330,6 +357,26 @@
         let isLoadingMore = false;
         let currentResults = [];
         let vectorSearchEnabled = true;
+        let authEnabled = false;
+        
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+        
+        function updateAuthUI(isLoggedIn) {
+            const authSection = document.getElementById('authSection');
+            if (isLoggedIn) {
+                authSection.innerHTML = '<button class="logout-btn" onclick="logout()">Logout</button>';
+            } else {
+                authSection.innerHTML = '<button class="login-btn" onclick="window.location.href=\'/login\'">Login</button>';
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('authToken');
+            window.location.href = '/login';
+        }
         
         async function loadConfig() {
             try {
@@ -337,6 +384,8 @@
                 const data = await response.json();
                 const env = data.environment || 'development';
                 vectorSearchEnabled = env !== 'production';
+                authEnabled = data.authEnabled;
+                
                 const vectorBtn = document.getElementById('vectorSearchBtn');
                 if (env === 'production') {
                     vectorBtn.disabled = true;
@@ -513,7 +562,10 @@
                 
                 const response = await fetch(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
                     body: JSON.stringify(courseData)
                 });
                 
@@ -541,7 +593,8 @@
             
             try {
                 const response = await fetch(`/api/courses/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
                 });
                 
                 if (response.ok) {
@@ -741,6 +794,7 @@
             try {
                 const response = await fetch('/api/upload/batch', {
                     method: 'POST',
+                    headers: getAuthHeaders(),
                     body: formData
                 });
                 
@@ -763,8 +817,19 @@
             btn.disabled = false;
         }
         
+        async function checkAuth() {
+            const token = localStorage.getItem('authToken');
+            if (token && authEnabled) {
+                updateAuthUI(true);
+            } else if (!authEnabled) {
+                updateAuthUI(true);
+            } else {
+                updateAuthUI(false);
+            }
+        }
+        
         loadCourses();
-        loadConfig();
+        loadConfig().then(() => checkAuth());
     </script>
 </body>
 </html>

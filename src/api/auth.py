@@ -1,0 +1,66 @@
+import os
+from flask import Blueprint, jsonify, request
+import requests
+
+from src.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, DEV_BYPASS_AUTH
+from src.core.errors import AuthenticationError, BadRequestError, handle_exception
+from src.core.logging import api_logger
+
+auth_bp = Blueprint("auth", __name__)
+
+
+@auth_bp.route("/api/auth/login", methods=["POST"])
+def login():
+    if DEV_BYPASS_AUTH:
+        return jsonify(
+            {"token": "dev_token", "user": {"email": "dev@localhost", "id": "dev_user"}}
+        )
+
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return jsonify({"error": "Supabase not configured"}), 500
+
+    data = request.get_json()
+    if not data:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Request body required")
+        )
+        return jsonify(error_dict), status_code
+
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Email and password required")
+        )
+        return jsonify(error_dict), status_code
+
+    try:
+        response = requests.post(
+            f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+            json={"email": email, "password": password},
+            headers={"Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY},
+        )
+
+        if response.status_code != 200:
+            api_logger.log_error(
+                Exception(f"Supabase auth failed: {response.text}"), {"email": email}
+            )
+            error_dict, status_code = handle_exception(
+                AuthenticationError("Invalid email or password")
+            )
+            return jsonify(error_dict), 401
+
+        token_data = response.json()
+        access_token = token_data.get("access_token")
+
+        return jsonify({"token": access_token, "user": token_data.get("user")})
+
+    except Exception as e:
+        api_logger.log_error(e, {"email": email})
+        return jsonify({"error": "Authentication failed"}), 500
+
+
+@auth_bp.route("/api/auth/logout", methods=["POST"])
+def logout():
+    return jsonify({"message": "Logged out successfully"})

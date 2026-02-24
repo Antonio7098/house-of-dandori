@@ -2,8 +2,10 @@ from flask import Flask, jsonify, render_template, request
 
 from src.api.routes import courses_bp
 from src.api.search import search_bp
+from src.api.auth import auth_bp
 from src.core.errors import AppError, handle_exception
 from src.core.logging import api_logger
+from src.core.config import SUPABASE_URL, SUPABASE_ANON_KEY
 
 
 def create_app():
@@ -13,10 +15,15 @@ def create_app():
 
     app.register_blueprint(courses_bp)
     app.register_blueprint(search_bp)
+    app.register_blueprint(auth_bp)
 
     @app.route("/")
     def index():
         return render_template("index.html")
+
+    @app.route("/login")
+    def login():
+        return render_template("login.html")
 
     @app.route("/api/health", methods=["GET"])
     def health():
