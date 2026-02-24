@@ -40,6 +40,7 @@ The School of Dandori course management platform is built with a layered archite
 │   │   ├── config.py       # Configuration & environment
 │   │   ├── errors.py       # Error taxonomy & custom exceptions
 │   │   ├── logging.py      # Structured logging
+│   │   ├── auth.py        # Supabase JWT authentication
 │   │   ├── utils.py        # Utility functions
 │   │   └── vector_store/
 │   │       ├── base.py     # Vector store interface
@@ -205,3 +206,7 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
 | `ENVIRONMENT` | `development` or `production` | `development` |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
+| `SUPABASE_URL` | Supabase project URL | - |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key | - |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key | - |
+| `DEV_BYPASS_AUTH` | Skip auth in development | `true` in development |

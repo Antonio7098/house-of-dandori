@@ -139,6 +139,18 @@ class FileProcessingError(AppError):
         )
 
 
+class AuthenticationError(AppError):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message=message,
+            code=ErrorCode.AUTHENTICATION_ERROR,
+            category=ErrorCategory.AUTH,
+            severity=ErrorSeverity.WARNING,
+            details=details,
+            status_code=401,
+        )
+
+
 class BadRequestError(AppError):
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(

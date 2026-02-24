@@ -10,6 +10,16 @@ if DATABASE_URL:
 
 ALLOWED_EXTENSIONS = {"pdf"}
 
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "development").lower()
+DEV_BYPASS_AUTH = (
+    ENVIRONMENT == "development"
+    and os.environ.get("DEV_BYPASS_AUTH", "true").lower() == "true"
+)
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+
 LOCATION_CLEANUP = {
     "Harrogate, UK": "Harrogate",
     "Oxford Botanical Gardens": "Oxford",

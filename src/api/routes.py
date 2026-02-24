@@ -19,6 +19,7 @@ from src.core.errors import (
     handle_exception,
 )
 from src.core.logging import api_logger, get_logger
+from src.core.auth import require_auth
 
 logger = get_logger("routes")
 from src.core.utils import to_json, parse_json_fields
@@ -155,6 +156,7 @@ def get_courses():
 
 
 @courses_bp.route("/api/courses/bulk", methods=["POST"])
+@require_auth
 def get_courses_bulk():
     data = request.get_json()
     if not data or not data.get("ids"):
@@ -242,6 +244,7 @@ def get_course(course_id):
 
 
 @courses_bp.route("/api/courses", methods=["POST"])
+@require_auth
 def create_course():
     data = request.json
 
@@ -328,6 +331,7 @@ def create_course():
 
 
 @courses_bp.route("/api/courses/<int:course_id>", methods=["PUT"])
+@require_auth
 def update_course(course_id):
     data = request.json
     use_postgres = bool(os.environ.get("DATABASE_URL"))
@@ -382,6 +386,7 @@ def update_course(course_id):
 
 
 @courses_bp.route("/api/courses/<int:course_id>", methods=["DELETE"])
+@require_auth
 def delete_course(course_id):
     use_postgres = bool(os.environ.get("DATABASE_URL"))
     placeholder = "%s" if use_postgres else "?"
@@ -418,6 +423,7 @@ def delete_course(course_id):
 
 
 @courses_bp.route("/api/upload", methods=["POST"])
+@require_auth
 def upload_pdf():
     if "file" not in request.files:
         error_dict, status_code = handle_exception(BadRequestError("No file provided"))
@@ -598,6 +604,7 @@ def insert_course(course_data, use_postgres):
 
 
 @courses_bp.route("/api/upload/batch", methods=["POST"])
+@require_auth
 def upload_batch():
     if "files" not in request.files:
         error_dict, status_code = handle_exception(BadRequestError("No files provided"))

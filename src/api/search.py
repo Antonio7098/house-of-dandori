@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 from src.core.utils import parse_json_fields
 from src.core.errors import BadRequestError, handle_exception
 from src.core.logging import api_logger
+from src.core.auth import require_auth
 from src.models.database import get_db_connection
 from src.models.schemas import SearchQuery
 
@@ -12,11 +13,14 @@ search_bp = Blueprint("search", __name__)
 
 @search_bp.route("/api/config", methods=["GET"])
 def get_config():
-    env = os.environ.get("ENVIRONMENT", "development").lower()
+    from src.core.config import ENVIRONMENT, DEV_BYPASS_AUTH, SUPABASE_URL
+
     return jsonify(
         {
-            "environment": env,
+            "environment": ENVIRONMENT,
             "vectorStoreProvider": os.environ.get("VECTOR_STORE_PROVIDER", "chroma"),
+            "authEnabled": not DEV_BYPASS_AUTH,
+            "supabaseConfigured": bool(SUPABASE_URL),
         }
     )
 
@@ -117,6 +121,7 @@ def semantic_search():
 
 
 @search_bp.route("/api/index", methods=["POST"])
+@require_auth
 def index_courses():
     try:
         conn = get_db_connection()
@@ -145,6 +150,7 @@ def index_courses():
 
 
 @search_bp.route("/api/reindex", methods=["POST"])
+@require_auth
 def reindex_courses():
     try:
         conn = get_db_connection()
