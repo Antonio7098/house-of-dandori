@@ -156,13 +156,22 @@ def get_courses():
 def get_courses_bulk():
     data = request.get_json()
     if not data or not data.get("ids"):
-        return jsonify({"error": "ids array is required"}), 400
+        error_dict, status_code = handle_exception(
+            BadRequestError("ids array is required")
+        )
+        return jsonify(error_dict), status_code
 
     course_ids = data["ids"]
     if not isinstance(course_ids, list):
-        return jsonify({"error": "ids must be an array"}), 400
+        error_dict, status_code = handle_exception(
+            BadRequestError("ids must be an array")
+        )
+        return jsonify(error_dict), status_code
     if len(course_ids) > 100:
-        return jsonify({"error": "Maximum 100 IDs allowed"}), 400
+        error_dict, status_code = handle_exception(
+            BadRequestError("Maximum 100 IDs allowed")
+        )
+        return jsonify(error_dict), status_code
 
     conn = None
     try:
@@ -179,9 +188,18 @@ def get_courses_bulk():
         course_map = {c["id"]: c for c in courses}
         ordered = [course_map[cid] for cid in course_ids if cid in course_map]
 
+        api_logger.log_request(
+            method="POST",
+            path="/api/courses/bulk",
+            status_code=200,
+            duration_ms=0,
+            count=len(ordered),
+        )
         return jsonify({"courses": ordered})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        api_logger.log_error(e, {"path": "/api/courses/bulk", "method": "POST"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
     finally:
         if conn:
             conn.close()
@@ -347,10 +365,18 @@ def update_course(course_id):
         )
         conn.commit()
         conn.close()
+        api_logger.log_request(
+            method="PUT",
+            path=f"/api/courses/{course_id}",
+            status_code=200,
+            duration_ms=0,
+        )
         return jsonify({"message": "Course updated"}), 200
     except Exception as e:
+        api_logger.log_error(e, {"path": f"/api/courses/{course_id}", "method": "PUT"})
         conn.close()
-        return jsonify({"error": str(e)}), 400
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
 
 
 @courses_bp.route("/api/courses/<int:course_id>", methods=["DELETE"])
@@ -365,28 +391,46 @@ def delete_course(course_id):
         cursor.execute(f"SELECT id FROM courses WHERE id = {placeholder}", (course_id,))
         if not cursor.fetchone():
             conn.close()
-            return jsonify({"error": "Course not found"}), 404
+            error_dict, status_code = handle_exception(
+                NotFoundError("Course", course_id)
+            )
+            return jsonify(error_dict), status_code
 
         cursor.execute(f"DELETE FROM courses WHERE id = {placeholder}", (course_id,))
         conn.commit()
         conn.close()
+        api_logger.log_request(
+            method="DELETE",
+            path=f"/api/courses/{course_id}",
+            status_code=200,
+            duration_ms=0,
+        )
         return jsonify({"message": "Course deleted"}), 200
     except Exception as e:
+        api_logger.log_error(
+            e, {"path": f"/api/courses/{course_id}", "method": "DELETE"}
+        )
         conn.close()
-        return jsonify({"error": str(e)}), 400
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
 
 
 @courses_bp.route("/api/upload", methods=["POST"])
 def upload_pdf():
     if "file" not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+        error_dict, status_code = handle_exception(BadRequestError("No file provided"))
+        return jsonify(error_dict), status_code
 
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No file selected"}), 400
+        error_dict, status_code = handle_exception(BadRequestError("No file selected"))
+        return jsonify(error_dict), status_code
 
     if not allowed_file(file.filename):
-        return jsonify({"error": "Only PDF files are allowed"}), 400
+        error_dict, status_code = handle_exception(
+            BadRequestError("Only PDF files are allowed")
+        )
+        return jsonify(error_dict), status_code
 
     file_data = file.read()
     filename = secure_filename(file.filename) if file.filename else "unknown.pdf"
@@ -394,7 +438,10 @@ def upload_pdf():
 
     course_data = extract_from_pdf(file_data, filename)
     if not course_data:
-        return jsonify({"error": "Failed to extract data from PDF"}), 400
+        error_dict, status_code = handle_exception(
+            FileProcessingError("Failed to extract data from PDF")
+        )
+        return jsonify(error_dict), status_code
 
     course_data["filename"] = unique_filename
     if not course_data.get("class_id"):
@@ -453,12 +500,21 @@ def upload_pdf():
             course_id = cursor.lastrowid
         conn.commit()
         conn.close()
+        api_logger.log_request(
+            method="POST",
+            path="/api/upload",
+            status_code=201,
+            duration_ms=0,
+            course_id=course_id,
+        )
         return jsonify(
             {"id": course_id, "message": "Course created", "data": course_data}
         ), 201
     except Exception as e:
+        api_logger.log_error(e, {"path": "/api/upload", "method": "POST"})
         conn.close()
-        return jsonify({"error": str(e)}), 400
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
 
 
 def process_single_pdf(file, use_postgres):
@@ -542,11 +598,13 @@ def insert_course(course_data, use_postgres):
 @courses_bp.route("/api/upload/batch", methods=["POST"])
 def upload_batch():
     if "files" not in request.files:
-        return jsonify({"error": "No files provided"}), 400
+        error_dict, status_code = handle_exception(BadRequestError("No files provided"))
+        return jsonify(error_dict), status_code
 
     files = request.files.getlist("files")
     if not files or all(f.filename == "" for f in files):
-        return jsonify({"error": "No files selected"}), 400
+        error_dict, status_code = handle_exception(BadRequestError("No files selected"))
+        return jsonify(error_dict), status_code
 
     use_postgres = bool(os.environ.get("DATABASE_URL"))
     results = []
@@ -592,6 +650,15 @@ def upload_batch():
             )
             failed += 1
 
+    api_logger.log_request(
+        method="POST",
+        path="/api/upload/batch",
+        status_code=200,
+        duration_ms=0,
+        total=len(files),
+        successful=successful,
+        failed=failed,
+    )
     return jsonify(
         {
             "total": len(files),

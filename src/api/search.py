@@ -130,9 +130,18 @@ def index_courses():
 
         rag = get_rag()
         rag.index_courses(courses)
+        api_logger.log_request(
+            method="POST",
+            path="/api/index",
+            status_code=200,
+            duration_ms=0,
+            count=len(courses),
+        )
         return jsonify({"message": "Courses indexed", "count": len(courses)})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        api_logger.log_error(e, {"path": "/api/index", "method": "POST"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
 
 
 @search_bp.route("/api/reindex", methods=["POST"])
@@ -153,8 +162,17 @@ def reindex_courses():
             rag.vector_store.delete([c["id"] for c in chunks])
 
         rag.index_courses(courses)
+        api_logger.log_request(
+            method="POST",
+            path="/api/reindex",
+            status_code=200,
+            duration_ms=0,
+            count=len(courses),
+        )
         return jsonify(
             {"message": "Vector store wiped and re-indexed", "count": len(courses)}
         )
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        api_logger.log_error(e, {"path": "/api/reindex", "method": "POST"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
