@@ -106,6 +106,65 @@
             transition: transform 0.2s;
         }
         .course-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .course-card--graph {
+            border-left: 4px solid #8e44ad;
+            position: relative;
+        }
+        .course-card--graph .graph-card__section {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+        }
+        .graph-card__section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #8e44ad;
+            margin-bottom: 8px;
+        }
+        .graph-card__pill {
+            display: inline-block;
+            background: rgba(142, 68, 173, 0.12);
+            color: #8e44ad;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            margin-bottom: 6px;
+            margin-right: 4px;
+        }
+        .graph-card__triple-list,
+        .graph-card__chunk-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .graph-card__triple-list li {
+            font-size: 13px;
+            color: #4a4a4a;
+        }
+        .graph-card__chunk-list li {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13px;
+            color: #4a4a4a;
+        }
+        .graph-card__neighbors-btn {
+            margin-top: 14px;
+            background: #2980b9;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 14px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .graph-card__neighbors-btn:hover {
+            background: #1f5f8e;
+        }
         .course-card h3 { color: #333; margin-bottom: 10px; font-size: 18px; }
         .course-card .class-id { 
             color: #666; 
@@ -566,10 +625,109 @@
                 }
                 lastGraphResults = data;
                 renderGraphResults(data);
+                renderGraphSearchCourses(data);
             } catch (error) {
                 console.error('Graph search error:', error);
                 panel.innerHTML = `<div class="graph-results__error">${escapeHtml(error.message || 'Graph search failed')}</div>`;
             }
+        }
+
+        function renderGraphSearchCourses(result) {
+            const grid = document.getElementById('courseGrid');
+            const entries = buildGraphCourseEntries(result);
+            isVectorSearch = false;
+            if (!entries.length) {
+                grid.innerHTML = '<div class="no-results">No graph results matched this query.</div>';
+                updatePaginationControls(0, 1, 1);
+                return;
+            }
+
+            grid.innerHTML = entries
+                .map(entry => {
+                    const triples = entry.graphTriples
+                        .slice(0, 3)
+                        .map(triple => `<li><span class="graph-card__pill">${escapeHtml(triple.predicate || 'Graph')}</span>${escapeHtml(triple.text)}</li>`) 
+                        .join('');
+                    const chunks = entry.chunkSnippets
+                        .slice(0, 2)
+                        .map(snippet => `<li>${escapeHtml(snippet)}</li>`) 
+                        .join('');
+                    const neighborsButton = entry.primaryEntity
+                        ? `<button class="graph-card__neighbors-btn" data-entity="${escapeHtml(entry.primaryEntity)}" onclick="loadNeighborContextValue(this.dataset.entity)">Inspect neighbors</button>`
+                        : '';
+                    return `
+                        <div class="course-card course-card--graph">
+                            <div class="class-id">${escapeHtml(entry.class_id || 'Graph result')}</div>
+                            <h3>${escapeHtml(entry.title)}</h3>
+                            <div class="info"><strong>Instructor:</strong> ${escapeHtml(entry.instructor || 'N/A')}</div>
+                            <div class="info"><strong>Location:</strong> ${escapeHtml(entry.location || 'N/A')}</div>
+                            <div class="info"><strong>Type:</strong> ${escapeHtml(entry.course_type || 'N/A')}</div>
+                            <div class="cost">${escapeHtml(entry.cost || 'N/A')}</div>
+                            ${entry.graphTriples.length ? `<div class="graph-card__section"><div class="graph-card__section-title">Knowledge Graph</div><ul class="graph-card__triple-list">${triples}</ul></div>` : ''}
+                            ${entry.chunkSnippets.length ? `<div class="graph-card__section"><div class="graph-card__section-title">Narrative Context</div><ul class="graph-card__chunk-list">${chunks}</ul></div>` : ''}
+                            ${neighborsButton}
+                        </div>
+                    `;
+                })
+                .join('');
+
+            updatePaginationControls(entries.length, 1, 1);
+        }
+
+        function buildGraphCourseEntries(result) {
+            if (!result) return [];
+            const entries = new Map();
+            const kgDocs = (result.kg && result.kg.documents) || [];
+            const kgMetas = (result.kg && result.kg.metadatas) || [];
+            const chunkDocs = (result.chunks && result.chunks.documents) || [];
+            const chunkMetas = (result.chunks && result.chunks.metadatas) || [];
+
+            const ensureEntry = (meta = {}) => {
+                const key = meta.course_id || meta.class_id || meta.subject || meta.title;
+                if (!key) return null;
+                if (!entries.has(key)) {
+                    entries.set(key, {
+                        key,
+                        course_id: meta.course_id || null,
+                        class_id: meta.class_id || meta.subject || 'Graph Result',
+                        title: meta.title || meta.subject || 'Untitled',
+                        instructor: meta.instructor || 'N/A',
+                        location: meta.location || 'N/A',
+                        course_type: meta.course_type || 'N/A',
+                        cost: meta.cost || 'N/A',
+                        graphTriples: [],
+                        chunkSnippets: [],
+                        primaryEntity: meta.subject || meta.title || meta.class_id,
+                    });
+                }
+                return entries.get(key);
+            };
+
+            kgDocs.forEach((doc, idx) => {
+                const meta = kgMetas[idx] || {};
+                const entry = ensureEntry(meta);
+                if (!entry) return;
+                if (!entry.primaryEntity && meta.subject) {
+                    entry.primaryEntity = meta.subject;
+                }
+                entry.graphTriples.push({
+                    text: doc || '',
+                    predicate: meta.predicate ? meta.predicate.replace(/_/g, ' ') : 'Graph match',
+                    subject: meta.subject,
+                });
+            });
+
+            chunkDocs.forEach((text, idx) => {
+                const meta = chunkMetas[idx] || {};
+                const entry = ensureEntry(meta);
+                if (!entry) return;
+                const snippet = text && text.length > 320 ? `${text.slice(0, 320)}…` : text;
+                if (snippet) {
+                    entry.chunkSnippets.push(snippet);
+                }
+            });
+
+            return Array.from(entries.values());
         }
 
         function renderGraphResults(result) {
