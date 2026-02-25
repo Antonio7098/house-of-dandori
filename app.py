@@ -60,5 +60,5 @@ def reindex_on_startup():
 
 
 if __name__ == "__main__":
-    reindex_on_startup()
+    # reindex_on_startup()  # Disabled by default; use POST /api/reindex to trigger manually
     app.run(host="0.0.0.0", port=5000, debug=True)

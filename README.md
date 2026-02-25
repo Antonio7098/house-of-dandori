@@ -40,7 +40,7 @@ docker start dandori-neo4j
 
 # ChromaDB is created automatically by the app; no separate container needed
 
-# Run locally (reindexing disabled by default)
+# Run locally (no auto-indexing)
 python app.py
 
 # Optional: force a one-time reindex via API
@@ -131,7 +131,7 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 
 > The rest of the GraphRAG tuning knobs (collection names, batch size, chunk cap, etc.) now ship with sensible in-code defaults, so no extra environment entries are needed unless you want to override them.
 >
-> **Startup behavior**: By default, reindexing on startup is enabled in development. Set `REINDEX_ON_STARTUP=false` to disable it, or trigger a one-time reindex via `POST /api/reindex`.
+> **Startup behavior**: Auto-indexing on startup is now disabled. Use `POST /api/reindex` to trigger a one-time reindex, or enable via `REINDEX_ON_STARTUP=true` if you want the old behavior.
 
 ### GraphRAG Enrichment Overview
 
