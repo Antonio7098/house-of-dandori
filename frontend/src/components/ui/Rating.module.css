@@ -1,0 +1,74 @@
+.rating {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stars {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.star {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-cream-400);
+  transition: color var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.star:not(:disabled):hover {
+  color: var(--color-honey-400);
+}
+
+.star.filled {
+  color: var(--color-honey-500);
+}
+
+.readonly .star {
+  cursor: default;
+}
+
+/* Sizes */
+.sm .starIcon {
+  width: 14px;
+  height: 14px;
+}
+
+.md .starIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.lg .starIcon {
+  width: 24px;
+  height: 24px;
+}
+
+.xl .starIcon {
+  width: 32px;
+  height: 32px;
+}
+
+/* Value display */
+.value {
+  font-family: var(--font-display);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.sm .value {
+  font-size: var(--text-sm);
+}
+
+.md .value {
+  font-size: var(--text-base);
+}
+
+.lg .value {
+  font-size: var(--text-lg);
+}
