@@ -17,8 +17,9 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/api/auth/login", methods=["POST"])
 def login():
     if DEV_BYPASS_AUTH:
+        # Generate a fake token for dev mode
         return jsonify(
-            {"token": "dev_token", "user": {"email": "dev@localhost", "id": "dev_user"}}
+            {"token": "dev_token", "user": {"email": request.json.get("email", "dev@localhost"), "id": "dev_user"}}
         )
 
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
@@ -101,22 +102,80 @@ def logout():
     return jsonify({"message": "Logged out successfully"})
 
 
-@auth_bp.route("/api/auth/profile", methods=["GET"])
-def get_profile():
+@auth_bp.route("/api/auth/profile", methods=["GET", "PUT"])
+def profile():
     from src.core.auth import auth_service
+    from src.models.database import get_db_connection
 
     if auth_service.dev_bypass:
-        return jsonify({"user": {"email": "dev@localhost", "id": "dev_user"}})
+        user_id = "dev_user"
+        email = "dev@localhost"
+    else:
+        token = auth_service.get_token_from_header()
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        try:
+            user = auth_service.verify_token(token)
+            user_id = user["id"]
+            email = user.get("email")
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
 
-    token = auth_service.get_token_from_header()
-    if not token:
-        return jsonify({"error": "No token provided"}), 401
+    if request.method == "GET":
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM profiles WHERE user_id = ?", (user_id,))
+            profile_row = cursor.fetchone()
+            conn.close()
 
-    try:
-        user = auth_service.verify_token(token)
-        return jsonify({"user": user})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 401
+            profile_data = dict(profile_row) if profile_row else {}
+            return jsonify({
+                "user": {
+                    "id": user_id,
+                    "email": email,
+                    "name": profile_data.get("name", ""),
+                    "location": profile_data.get("location", ""),
+                    "avatar": profile_data.get("avatar", "")
+                }
+            })
+        except Exception as e:
+            api_logger.log_error(e, {"user_id": user_id})
+            return jsonify({"error": "Failed to fetch profile"}), 500
+
+    elif request.method == "PUT":
+        data = request.get_json()
+        name = data.get("name", "")
+        location = data.get("location", "")
+        avatar = data.get("avatar", "")
+
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO profiles (user_id, name, location, avatar)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    name = excluded.name,
+                    location = excluded.location,
+                    avatar = excluded.avatar
+                """,
+                (user_id, name, location, avatar)
+            )
+            conn.commit()
+            conn.close()
+
+            return jsonify({
+                "id": user_id,
+                "email": email,
+                "name": name,
+                "location": location,
+                "avatar": avatar
+            })
+        except Exception as e:
+            api_logger.log_error(e, {"user_id": user_id})
+            return jsonify({"error": "Failed to update profile"}), 500
 
 
 @auth_bp.route("/api/auth/signup", methods=["POST"])

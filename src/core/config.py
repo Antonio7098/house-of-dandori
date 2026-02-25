@@ -11,10 +11,9 @@ if DATABASE_URL:
 ALLOWED_EXTENSIONS = {"pdf"}
 
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "development").lower()
-DEV_BYPASS_AUTH = (
-    ENVIRONMENT == "development"
-    and os.environ.get("DEV_BYPASS_AUTH", "true").lower() == "true"
-)
+# Check if DEV_BYPASS_AUTH is explicitly set to "false" in env
+_env_bypass = os.environ.get("DEV_BYPASS_AUTH", "true").lower()
+DEV_BYPASS_AUTH = False if _env_bypass == "false" else (ENVIRONMENT == "development")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_PUBLISHABLE_KEY = os.environ.get("SUPABASE_PUBLISHABLE_KEY")

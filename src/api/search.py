@@ -126,6 +126,13 @@ def graph_search():
     k_kg = int(request.args.get("k_kg", 5))
     k_chunks = int(request.args.get("k_chunks", 5))
     include_answer = request.args.get("answer", "false").lower() == "true"
+    
+    # Get filters
+    location = request.args.get("location", "")
+    course_type = request.args.get("course_type", "")
+    min_price = request.args.get("min_price")
+    max_price = request.args.get("max_price")
+    sort_by = request.args.get("sort_by", "")
 
     if not query:
         error_dict, status_code = handle_exception(
@@ -138,12 +145,71 @@ def graph_search():
         provider = request.args.get("provider")
         graph_rag = get_graph_rag_service(provider)
         
+        # Parse filters
+        filters = {}
+        if location:
+            filters["location"] = location
+        if course_type:
+            filters["course_type"] = course_type
+        
+        try:
+            if min_price and min_price != 'undefined':
+                filters["min_price"] = float(min_price)
+            if max_price and max_price != 'undefined':
+                filters["max_price"] = float(max_price)
+        except ValueError:
+            pass
+            
+        if sort_by:
+            filters["sort_by"] = sort_by
+            
         results = graph_rag.hybrid_search(
             query=query,
             k_kg=k_kg,
             k_chunks=k_chunks,
             include_answer=include_answer,
+            filters=filters
         )
+        
+        # The hybrid search in graph_rag_service might not implement filtering or sorting yet.
+        # We need to manually filter and sort the courses in the results if it didn't
+        if "courses" in results and results["courses"]:
+            courses = results["courses"]
+            
+            # Post-filtering
+            filtered_courses = []
+            for c in courses:
+                # Filter by location
+                if location and location.lower() not in c.get("location", "").lower():
+                    continue
+                # Filter by course type
+                if course_type and course_type.lower() not in c.get("course_type", "").lower():
+                    continue
+                
+                # Filter by price
+                try:
+                    cost_str = c.get("cost", "£0").replace("£", "").strip()
+                    cost = float(cost_str) if cost_str else 0.0
+                    
+                    if min_price and min_price != 'undefined' and cost < float(min_price):
+                        continue
+                    if max_price and max_price != 'undefined' and cost > float(max_price):
+                        continue
+                except (ValueError, TypeError):
+                    pass
+                    
+                filtered_courses.append(c)
+                
+            # Sorting
+            if sort_by == 'price_asc':
+                filtered_courses.sort(key=lambda c: float(c.get("cost", "£0").replace("£", "").strip() or 0))
+            elif sort_by == 'price_desc':
+                filtered_courses.sort(key=lambda c: float(c.get("cost", "£0").replace("£", "").strip() or 0), reverse=True)
+            elif sort_by == 'newest':
+                filtered_courses.sort(key=lambda c: c.get("created_at", ""), reverse=True)
+                
+            results["courses"] = filtered_courses
+            results["count"] = len(filtered_courses)
         
         api_logger.log_request(
             method="GET",

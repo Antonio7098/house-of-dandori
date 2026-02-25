@@ -60,6 +60,9 @@ def get_courses():
     search = request.args.get("search", "")
     location = request.args.get("location", "")
     course_type = request.args.get("course_type", "")
+    min_price = request.args.get("min_price")
+    max_price = request.args.get("max_price")
+    sort_by = request.args.get("sort_by", "")
     page = int(request.args.get("page", 1))
     limit = int(request.args.get("limit", 20))
     offset = (page - 1) * limit
@@ -111,6 +114,35 @@ def get_courses():
             params.append(f"%{course_type}%")
             count_params.append(f"%{course_type}%")
 
+        if min_price and min_price != 'undefined':
+            try:
+                min_p = float(min_price)
+                # Cast cost (like '£85.00') to numeric by replacing £ and CASTing
+                if use_postgres:
+                    query += f" AND CAST(REPLACE(cost, '£', '') AS NUMERIC) >= {placeholder}"
+                    count_query += f" AND CAST(REPLACE(cost, '£', '') AS NUMERIC) >= {placeholder}"
+                else:
+                    query += f" AND CAST(REPLACE(cost, '£', '') AS REAL) >= {placeholder}"
+                    count_query += f" AND CAST(REPLACE(cost, '£', '') AS REAL) >= {placeholder}"
+                params.append(min_p)
+                count_params.append(min_p)
+            except ValueError:
+                pass
+                
+        if max_price and max_price != 'undefined':
+            try:
+                max_p = float(max_price)
+                if use_postgres:
+                    query += f" AND CAST(REPLACE(cost, '£', '') AS NUMERIC) <= {placeholder}"
+                    count_query += f" AND CAST(REPLACE(cost, '£', '') AS NUMERIC) <= {placeholder}"
+                else:
+                    query += f" AND CAST(REPLACE(cost, '£', '') AS REAL) <= {placeholder}"
+                    count_query += f" AND CAST(REPLACE(cost, '£', '') AS REAL) <= {placeholder}"
+                params.append(max_p)
+                count_params.append(max_p)
+            except ValueError:
+                pass
+
         cursor.execute(count_query, count_params)
         count_result = cursor.fetchone()
         if isinstance(count_result, (tuple, list)):
@@ -124,11 +156,50 @@ def get_courses():
         else:
             total = count_result[0]
 
-        query += f" ORDER BY class_id LIMIT {placeholder} OFFSET {placeholder}"
+        if sort_by == 'price_asc':
+            if use_postgres:
+                query += " ORDER BY CAST(REPLACE(cost, '£', '') AS NUMERIC) ASC"
+            else:
+                query += " ORDER BY CAST(REPLACE(cost, '£', '') AS REAL) ASC"
+        elif sort_by == 'price_desc':
+            if use_postgres:
+                query += " ORDER BY CAST(REPLACE(cost, '£', '') AS NUMERIC) DESC"
+            else:
+                query += " ORDER BY CAST(REPLACE(cost, '£', '') AS REAL) DESC"
+        elif sort_by == 'newest':
+            query += " ORDER BY created_at DESC"
+        else:
+            query += " ORDER BY class_id"
+            
+        query += f" LIMIT {placeholder} OFFSET {placeholder}"
         params.extend([limit, offset])
 
         cursor.execute(query, params)
         courses = [parse_json_fields(c) for c in cursor.fetchall()]
+
+        # Attach ratings and reviews count
+        if courses:
+            course_ids = [c["id"] for c in courses]
+            placeholders = ",".join([placeholder] * len(course_ids))
+            
+            # Use appropriate cast for PostgreSQL (NUMERIC) vs SQLite (REAL)
+            avg_cast = "NUMERIC" if use_postgres else "REAL"
+            cursor.execute(f"""
+                SELECT course_id, CAST(AVG(rating) AS {avg_cast}) as avg_rating, COUNT(*) as review_count
+                FROM reviews
+                WHERE course_id IN ({placeholders})
+                GROUP BY course_id
+            """, course_ids)
+            
+            ratings_data = {row["course_id"]: {"rating": float(row["avg_rating"]) if row["avg_rating"] else None, "review_count": row["review_count"]} for row in cursor.fetchall()}
+            
+            for course in courses:
+                if course["id"] in ratings_data:
+                    course["rating"] = ratings_data[course["id"]]["rating"]
+                    course["review_count"] = ratings_data[course["id"]]["review_count"]
+                else:
+                    course["rating"] = None
+                    course["review_count"] = 0
 
         api_logger.log_request(
             method="GET",
@@ -209,44 +280,102 @@ def get_courses_bulk():
             conn.close()
 
 
-@courses_bp.route("/api/courses/<int:course_id>", methods=["GET"])
-def get_course(course_id):
+def _fetch_course_data(cursor, placeholder, identifier_value, identifier_column="id"):
+    cursor.execute(
+        f"SELECT * FROM courses WHERE {identifier_column} = {placeholder}",
+        (identifier_value,),
+    )
+    return cursor.fetchone()
+
+
+def _attach_reviews(cursor, placeholder, course_db_id, use_postgres):
+    avg_cast = "NUMERIC" if use_postgres else "REAL"
+    cursor.execute(
+        f"""
+            SELECT CAST(AVG(rating) AS {avg_cast}) as avg_rating, COUNT(*) as review_count
+            FROM reviews
+            WHERE course_id = {placeholder}
+        """,
+        (course_db_id,),
+    )
+    return cursor.fetchone()
+
+
+def _build_course_response(course_row, rating_row):
+    course_data = parse_json_fields(course_row)
+    if rating_row:
+        course_data["rating"] = (
+            float(rating_row["avg_rating"]) if rating_row["avg_rating"] else None
+        )
+        course_data["review_count"] = rating_row["review_count"]
+    else:
+        course_data["rating"] = None
+        course_data["review_count"] = 0
+    return course_data
+
+
+def _get_course_response(identifier_value, identifier_column="id"):
     conn = get_db_connection()
     cursor = conn.cursor()
     use_postgres = bool(os.environ.get("DATABASE_URL"))
     placeholder = "%s" if use_postgres else "?"
 
     try:
-        cursor.execute(f"SELECT * FROM courses WHERE id = {placeholder}", (course_id,))
-        course = cursor.fetchone()
-        conn.close()
+        course = _fetch_course_data(cursor, placeholder, identifier_value, identifier_column)
 
         if course:
-            api_logger.log_request(
-                method="GET",
-                path=f"/api/courses/{course_id}",
-                status_code=200,
-                duration_ms=0,
-            )
-            return jsonify(parse_json_fields(course))
-        api_logger.log_request(
-            method="GET",
-            path=f"/api/courses/{course_id}",
-            status_code=404,
-            duration_ms=0,
+            db_course_id = course["id"]
+            rating_row = _attach_reviews(cursor, placeholder, db_course_id, use_postgres)
+            course_data = _build_course_response(course, rating_row)
+            return jsonify(course_data), 200
+
+        error_dict, status_code = handle_exception(
+            NotFoundError("Course", identifier_value)
         )
-        error_dict, status_code = handle_exception(NotFoundError("Course", course_id))
         return jsonify(error_dict), status_code
-    except Exception as e:
-        api_logger.log_error(e, {"path": f"/api/courses/{course_id}", "method": "GET"})
-        error_dict, status_code = handle_exception(e)
-        return jsonify(error_dict), status_code
+    finally:
+        conn.close()
+
+
+@courses_bp.route("/api/courses/<int:course_id>", methods=["GET"])
+def get_course(course_id):
+    response, status_code = _get_course_response(course_id, "id")
+    if status_code == 404:
+        # Fallback to class_id for legacy entries whose class_id equals the requested id
+        response, status_code = _get_course_response(str(course_id), "class_id")
+
+    api_logger.log_request(
+        method="GET",
+        path=f"/api/courses/{course_id}",
+        status_code=status_code,
+        duration_ms=0,
+    )
+    return response, status_code
+
+
+@courses_bp.route("/api/courses/by-class/<class_id>", methods=["GET"])
+def get_course_by_class_id(class_id):
+    response, status_code = _get_course_response(class_id, "class_id")
+    api_logger.log_request(
+        method="GET",
+        path=f"/api/courses/by-class/{class_id}",
+        status_code=status_code,
+        duration_ms=0,
+    )
+    return response, status_code
 
 
 @courses_bp.route("/api/courses", methods=["POST"])
 @require_auth
 def create_course():
     data = request.json
+    
+    # Simple admin check
+    from src.core.auth import auth_service
+    token = auth_service.get_token_from_header()
+    user = auth_service.verify_token(token) if not auth_service.dev_bypass else {"email": "dev@localhost"}
+    if not user.get("email", "").endswith("@dandori.com") and not auth_service.dev_bypass:
+        return jsonify({"error": "Admin access required"}), 403
 
     try:
         validated_data = CourseCreate(**(data or {}))
@@ -326,8 +455,40 @@ def create_course():
         conn.close()
         error_dict, status_code = handle_exception(e)
         return jsonify(error_dict), status_code
+
+
+@courses_bp.route("/api/courses/<int:course_id>", methods=["DELETE"])
+@require_auth
+def delete_course(course_id):
+    # Simple admin check
+    from src.core.auth import auth_service
+    token = auth_service.get_token_from_header()
+    user = auth_service.verify_token(token) if not auth_service.dev_bypass else {"email": "dev@localhost"}
+    if not user.get("email", "").endswith("@dandori.com") and not auth_service.dev_bypass:
+        return jsonify({"error": "Admin access required"}), 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    use_postgres = bool(os.environ.get("DATABASE_URL"))
+    placeholder = "%s" if use_postgres else "?"
+
+    try:
+        # Check if course exists
+        cursor.execute(f"SELECT id FROM courses WHERE id = {placeholder}", (course_id,))
+        if not cursor.fetchone():
+            conn.close()
+            error_dict, status_code = handle_exception(NotFoundError("Course", course_id))
+            return jsonify(error_dict), status_code
+
+        cursor.execute(f"DELETE FROM courses WHERE id = {placeholder}", (course_id,))
+        conn.commit()
         conn.close()
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"message": "Course deleted successfully"}), 200
+    except Exception as e:
+        conn.close()
+        api_logger.log_error(e, {"path": f"/api/courses/{course_id}", "method": "DELETE"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
 
 
 @courses_bp.route("/api/courses/<int:course_id>", methods=["PUT"])
@@ -380,43 +541,6 @@ def update_course(course_id):
         return jsonify({"message": "Course updated"}), 200
     except Exception as e:
         api_logger.log_error(e, {"path": f"/api/courses/{course_id}", "method": "PUT"})
-        conn.close()
-        error_dict, status_code = handle_exception(e)
-        return jsonify(error_dict), status_code
-
-
-@courses_bp.route("/api/courses/<int:course_id>", methods=["DELETE"])
-@require_auth
-def delete_course(course_id):
-    use_postgres = bool(os.environ.get("DATABASE_URL"))
-    placeholder = "%s" if use_postgres else "?"
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute(f"SELECT id FROM courses WHERE id = {placeholder}", (course_id,))
-        if not cursor.fetchone():
-            conn.close()
-            error_dict, status_code = handle_exception(
-                NotFoundError("Course", course_id)
-            )
-            return jsonify(error_dict), status_code
-
-        cursor.execute(f"DELETE FROM courses WHERE id = {placeholder}", (course_id,))
-        conn.commit()
-        conn.close()
-        api_logger.log_request(
-            method="DELETE",
-            path=f"/api/courses/{course_id}",
-            status_code=200,
-            duration_ms=0,
-        )
-        return jsonify({"message": "Course deleted"}), 200
-    except Exception as e:
-        api_logger.log_error(
-            e, {"path": f"/api/courses/{course_id}", "method": "DELETE"}
-        )
         conn.close()
         error_dict, status_code = handle_exception(e)
         return jsonify(error_dict), status_code

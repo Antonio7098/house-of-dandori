@@ -158,34 +158,59 @@ class VertexAIVectorSearchProvider(VectorStoreProvider):
         self.index.upsert_datapoints(datapoints=datapoints)
 
     def _add_v2(self, ids: list[str], documents: list[str], metadatas: list[dict]) -> None:
-        """Add documents using V2 Collection API"""
+        """Add documents using V2 Collection API (upsert: create or update)"""
         from google.cloud import vectorsearch_v1beta
+        from google.api_core import exceptions
 
         embeddings = self.get_embeddings(documents)
 
-        # Create Data Objects for V2 API
-        data_objects = []
+        collection_name = f"projects/{self.project}/locations/{self.location}/collections/{self.collection_id}"
+        
+        # Use DataObjectServiceClient for creating/updating individual data objects
+        data_object_client = vectorsearch_v1beta.DataObjectServiceClient()
+        
+        # Create or update each Data Object individually
         for i, doc_id in enumerate(ids):
             # Merge metadata with document content
             data = metadatas[i].copy() if metadatas[i] else {}
             data["page_content"] = documents[i]
             
-            # Create Data Object
+            # Sanitize data: remove None values and convert to strings
+            sanitized_data = {}
+            for key, value in data.items():
+                if value is None:
+                    continue  # Skip None values
+                elif isinstance(value, (str, int, float, bool)):
+                    sanitized_data[key] = value
+                elif isinstance(value, (list, dict)):
+                    # Convert complex types to JSON strings
+                    import json
+                    sanitized_data[key] = json.dumps(value)
+                else:
+                    # Convert other types to string
+                    sanitized_data[key] = str(value)
+            
+            # Create Data Object (ID is specified in request, not in DataObject constructor)
             data_object = vectorsearch_v1beta.DataObject(
-                id=doc_id,
-                data=data,
-                vectors={"embedding": embeddings[i]},
+                data=sanitized_data,
+                vectors={"embedding": {"dense": {"values": embeddings[i]}}},
             )
-            data_objects.append(data_object)
-
-        # Upsert Data Objects to Collection
-        collection_name = f"projects/{self.project}/locations/{self.location}/collections/{self.collection_id}"
-        request = vectorsearch_v1beta.UpsertDataObjectsRequest(
-            collection=collection_name,
-            data_objects=data_objects,
-        )
-        
-        self.collection_client.upsert_data_objects(request=request)
+            
+            try:
+                # Try to create the data object
+                request = vectorsearch_v1beta.CreateDataObjectRequest(
+                    parent=collection_name,
+                    data_object_id=doc_id,
+                    data_object=data_object,
+                )
+                data_object_client.create_data_object(request=request)
+            except exceptions.AlreadyExists:
+                # If it already exists, update it instead
+                data_object.name = f"{collection_name}/dataObjects/{doc_id}"
+                update_request = vectorsearch_v1beta.UpdateDataObjectRequest(
+                    data_object=data_object,
+                )
+                data_object_client.update_data_object(request=update_request)
 
     def delete(self, ids: list[str]) -> None:
         """Delete documents from the vector store (V1 or V2)"""
@@ -295,14 +320,22 @@ class VertexAIVectorSearchProvider(VectorStoreProvider):
 
         if response.results:
             for result in response.results:
-                ids.append(result.data_object.name.split("/")[-1])  # Extract ID from name
+                # Extract ID from name
+                ids.append(result.data_object.name.split("/")[-1])
+                
+                # Extract distance
                 distances.append(result.distance if hasattr(result, 'distance') else 0.0)
                 
                 # Extract document content and metadata
-                data = dict(result.data_object.data)
-                doc_content = data.pop("page_content", "")
-                documents.append(doc_content)
-                metadatas.append(data)
+                if result.data_object.data:
+                    data = dict(result.data_object.data)
+                    doc_content = data.pop("page_content", "")
+                    documents.append(doc_content)
+                    metadatas.append(data)
+                else:
+                    # No data in result - use empty values
+                    documents.append("")
+                    metadatas.append({})
 
         results = {
             "ids": [ids],

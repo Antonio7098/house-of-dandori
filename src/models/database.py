@@ -47,6 +47,34 @@ class DatabaseManager:
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS profiles (
+                    user_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    location TEXT,
+                    avatar TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS saved_courses (
+                    user_id TEXT,
+                    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    PRIMARY KEY (user_id, course_id)
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT,
+                    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+                    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+                    review TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE (user_id, course_id)
+                )
+            """)
         else:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS courses (
@@ -65,6 +93,36 @@ class DatabaseManager:
                     pdf_url TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS profiles (
+                    user_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    location TEXT,
+                    avatar TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS saved_courses (
+                    user_id TEXT,
+                    course_id INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, course_id),
+                    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT,
+                    course_id INTEGER,
+                    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+                    review TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (user_id, course_id),
+                    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
                 )
             """)
         self.conn.commit()
