@@ -1,4 +1,6 @@
-from flask import Flask, jsonify, render_template, request
+import base64
+
+from flask import Flask, jsonify, make_response, render_template, request
 
 from src.api.routes import courses_bp
 from src.api.search import search_bp
@@ -6,6 +8,9 @@ from src.api.auth import auth_bp
 from src.core.errors import AppError, handle_exception
 from src.core.logging import api_logger
 from src.core.config import SUPABASE_URL, SUPABASE_ANON_KEY
+
+
+FAVICON_BYTES = base64.b64decode("R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==")
 
 
 def create_app():
@@ -36,6 +41,12 @@ def create_app():
     @app.route("/auth/callback")
     def auth_callback():
         return render_template("callback.html")
+
+    @app.route("/favicon.ico")
+    def favicon():
+        response = make_response(FAVICON_BYTES)
+        response.headers.set("Content-Type", "image/gif")
+        return response
 
     @app.route("/api/health", methods=["GET"])
     def health():

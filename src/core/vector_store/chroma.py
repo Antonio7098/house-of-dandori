@@ -1,8 +1,10 @@
+import logging
 import os
 from typing import Any
 
 import chromadb
 from chromadb import Documents, EmbeddingFunction, Embeddings
+from chromadb.config import Settings
 from src.core.vector_store.base import VectorStoreProvider, EmbeddingProvider
 
 
@@ -117,10 +119,7 @@ class ChromaDBProvider(VectorStoreProvider):
             model=embedding_model,
         )
 
-        if persist_dir:
-            self.client = chromadb.PersistentClient(path=persist_dir)
-        else:
-            self.client = chromadb.Client()
+        self.client = self._create_client()
 
         self._ensure_collection()
 
@@ -129,6 +128,31 @@ class ChromaDBProvider(VectorStoreProvider):
             name=self.collection_name,
             embedding_function=self.embedder,
         )
+
+    def _create_client(self):
+        base_settings = {
+            "anonymized_telemetry": False,
+        }
+
+        if self.persist_dir:
+            settings = Settings(
+                **base_settings,
+                is_persistent=True,
+                persist_directory=self.persist_dir,
+                allow_reset=True,
+            )
+            try:
+                return chromadb.PersistentClient(path=self.persist_dir, settings=settings)
+            except ValueError as err:
+                logging.warning(
+                    "Failed to initialize persistent Chroma client at %s (%s). Falling back to in-memory store.",
+                    self.persist_dir,
+                    err,
+                )
+
+        # fallback to in-memory client
+        fallback_settings = Settings(**base_settings)
+        return chromadb.Client(fallback_settings)
 
     def add(self, ids: list[str], documents: list[str], metadatas: list[dict]) -> None:
         self.collection.add(
