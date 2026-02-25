@@ -187,13 +187,25 @@
             gap: 10px;
         }
         .graph-results__tag {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             background: rgba(78, 205, 196, 0.15);
             color: #26a69a;
-            padding: 2px 8px;
+            padding: 2px 10px;
             border-radius: 999px;
-            font-size: 12px;
-            margin-right: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-right: 10px;
+        }
+        .graph-results__tag--chunk {
+            background: rgba(142, 68, 173, 0.12);
+            color: #8e44ad;
+        }
+        .graph-results__tag--neighbor {
+            background: rgba(52, 152, 219, 0.12);
+            color: #2980b9;
         }
         .graph-results__triple {
             border-left: 3px solid #8e44ad;
@@ -208,6 +220,61 @@
             font-size: 14px;
             color: #555;
             border: 1px solid #eee;
+        }
+        .graph-results__neighbors {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .graph-results__neighbors-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .graph-results__neighbors-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .graph-results__neighbors-controls select,
+        .graph-results__neighbors-controls button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+        }
+        .graph-results__neighbors-btn {
+            background: #2980b9;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        .graph-results__neighbors-btn:hover {
+            background: #1f6391;
+        }
+        .graph-results__neighbors-list {
+            margin-top: 10px;
+            border-radius: 8px;
+            border: 1px solid #f0f0f0;
+            background: #fcfcff;
+            padding: 12px;
+        }
+        .graph-results__neighbor-item {
+            border-left: 3px solid #2980b9;
+            padding-left: 12px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #34495e;
+        }
+        .graph-results__neighbor-item:last-child {
+            margin-bottom: 0;
+        }
+        .graph-results__placeholder {
+            color: #999;
+            font-style: italic;
+            font-size: 13px;
         }
         .graph-search-btn {
             background: #8e44ad;
@@ -442,6 +509,7 @@
         let vectorSearchEnabled = true;
         let authEnabled = false;
         let lastGraphResults = null;
+        let lastNeighborResults = null;
         
         function getAuthHeaders() {
             const token = localStorage.getItem('authToken');
@@ -475,6 +543,7 @@
             panel.classList.add('hidden');
             panel.innerHTML = '';
             lastGraphResults = null;
+            lastNeighborResults = null;
         }
 
         async function graphSearch() {
@@ -508,13 +577,18 @@
             const kgDocs = (result.kg && result.kg.documents) || [];
             const kgMetas = (result.kg && result.kg.metadatas) || [];
             const chunkDocs = (result.chunks && result.chunks.documents) || [];
+            const chunkMetas = (result.chunks && result.chunks.metadatas) || [];
+            const kgSubjects = kgMetas
+                .map((meta) => (meta && meta.subject ? meta.subject : null))
+                .filter((value, idx, arr) => value && arr.indexOf(value) === idx);
 
             const triplesMarkup = kgDocs.length
                 ? `<ul>${kgDocs
                       .map((doc, idx) => {
                           const meta = kgMetas[idx] || {};
                           const predicate = meta.predicate ? meta.predicate.replace(/_/g, ' ') : '';
-                          return `<li class="graph-results__triple"><span class="graph-results__tag">${escapeHtml(predicate || 'triple')}</span>${escapeHtml(doc)}</li>`;
+                          const subject = meta.subject ? `<small style="color:#888;">(${escapeHtml(meta.subject)})</small>` : '';
+                          return `<li class="graph-results__triple"><span class="graph-results__tag">Graph · ${escapeHtml(predicate || 'triple')}</span>${escapeHtml(doc)} ${subject}</li>`;
                       })
                       .join('')}</ul>`
                 : '<p>No knowledge graph triples matched this query.</p>';
@@ -522,11 +596,38 @@
             const chunkMarkup = chunkDocs.length
                 ? `<ul>${chunkDocs
                       .map(
-                          (text) =>
-                              `<li class="graph-results__chunk">${escapeHtml(text.length > 400 ? `${text.slice(0, 400)}…` : text)}</li>`
+                          (text, idx) => {
+                              const meta = chunkMetas[idx] || {};
+                              const title = meta.title ? `<div style="font-weight:600;color:#2c3e50;margin-bottom:6px;">${escapeHtml(meta.title)}</div>` : '';
+                              const body = escapeHtml(text.length > 400 ? `${text.slice(0, 400)}…` : text);
+                              return `<li class="graph-results__chunk"><span class="graph-results__tag graph-results__tag--chunk">Narrative Chunk</span>${title}${body}</li>`;
+                          }
                       )
                       .join('')}</ul>`
                 : '<p>No narrative chunks matched this query.</p>';
+
+            const neighborControls = `<div class="graph-results__neighbors">
+                <div class="graph-results__neighbors-header">
+                    <h4>Neo4j Neighbor Context</h4>
+                    ${kgSubjects.length
+                        ? `<div class="graph-results__neighbors-controls">
+                                <label for="neighborSelect">Entity</label>
+                                <select id="neighborSelect">
+                                    ${kgSubjects
+                                        .map(
+                                            (subject) =>
+                                                `<option value="${escapeHtml(subject)}">${escapeHtml(subject)}</option>`
+                                        )
+                                        .join('')}
+                                </select>
+                                <button class="graph-results__neighbors-btn" onclick="loadNeighborContext()">Load neighbors</button>
+                           </div>`
+                        : '<p class="graph-results__placeholder">No course entities available from KG hits to inspect.</p>'}
+                </div>
+                <div id="neighborResults" class="graph-results__neighbors-list">
+                    <p class="graph-results__placeholder">Neighbor context will appear here once loaded.</p>
+                </div>
+            </div>`;
 
             panel.innerHTML = `
                 <div class="graph-results__header">
@@ -546,7 +647,58 @@
                         ${chunkMarkup}
                     </div>
                 </div>
+                ${neighborControls}
             `;
+        }
+
+        async function loadNeighborContext() {
+            const select = document.getElementById('neighborSelect');
+            if (!select) {
+                alert('No entity selected for neighbor retrieval.');
+                return;
+            }
+            const value = select.value;
+            if (!value) {
+                alert('Please choose an entity to inspect.');
+                return;
+            }
+            await fetchNeighborContext(value);
+        }
+
+        async function fetchNeighborContext(value) {
+            const container = document.getElementById('neighborResults');
+            if (!container) return;
+            container.innerHTML = '<p class="graph-results__placeholder">Loading neighbor context…</p>';
+            try {
+                const response = await fetch(`/api/graph-neighbors?value=${encodeURIComponent(value)}&limit=25`);
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Unable to load neighbors');
+                }
+                lastNeighborResults = data;
+                container.innerHTML = renderNeighborResults(data);
+            } catch (error) {
+                console.error('Neighbor fetch error:', error);
+                container.innerHTML = `<div class="graph-results__placeholder" style="color:#e74c3c;">${escapeHtml(error.message || 'Failed to load neighbors')}</div>`;
+            }
+        }
+
+        function renderNeighborResults(data) {
+            if (!data || !data.neighbors || !data.neighbors.length) {
+                return '<p class="graph-results__placeholder">No neighbors found in Neo4j for this entity.</p>';
+            }
+            return data.neighbors
+                .map((neighbor) => {
+                    const predicate = neighbor.predicate ? neighbor.predicate.replace(/_/g, ' ') : 'related';
+                    const directionLabel = neighbor.direction === 'out' ? 'outgoing' : 'incoming';
+                    const text = neighbor.text ? `<div style="margin-top:4px;color:#555;">${escapeHtml(neighbor.text)}</div>` : '';
+                    return `<div class="graph-results__neighbor-item">
+                        <div><span class="graph-results__tag graph-results__tag--neighbor">Neighbor · ${escapeHtml(directionLabel)}</span>${escapeHtml(neighbor.neighbor || 'Unknown')}</div>
+                        <small style="color:#888;">Predicate: ${escapeHtml(predicate)}</small>
+                        ${text}
+                    </div>`;
+                })
+                .join('');
         }
         
         function logout() {

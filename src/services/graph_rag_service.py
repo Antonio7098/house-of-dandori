@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from collections import Counter, defaultdict
@@ -12,6 +13,7 @@ from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
 
 from src.core.utils import parse_json_fields
+from src.services.neo4j_graph_store import Neo4jGraphStore
 from src.services.rag_service import VectorStoreFactory, ensure_chroma_persist_dir
 
 Predicate = Dict[str, str]
@@ -27,12 +29,32 @@ DEVELOPS_PROFICIENCY_IN = "develops_proficiency_in"
 PROVIDES_MATERIAL = "provides_material"
 BELONGS_TO_THEME = "belongs_to_theme"
 
-NOISE_TOKENS = {"skill", "skills"}
+ADDITIONAL_NOISE_TOKENS = {
+    "learn",
+    "learning",
+    "journey",
+    "class",
+    "classes",
+    "world",
+    "create",
+    "creating",
+    "student",
+    "students",
+    "technique",
+    "techniques",
+    "whimsical",
+    "delve",
+    "guidance",
+    "experience",
+    "experience",
+}
+NOISE_TOKENS = {"skill", "skills"} | ADDITIONAL_NOISE_TOKENS
 TOKEN_FREQ_THRESHOLD = 40
 TOKEN_COVERAGE_THRESHOLD = 20
 FLEXIBLE_WINDOW = 3
 MAX_FLEXIBLE_PHRASES = 25
 MAX_CANDIDATE_TERMS = 60
+MAX_CHUNK_CHARS = 2000
 
 DEFAULT_THEME_NAMES = [
     "Creative Arts and Design Cluster",
@@ -66,6 +88,18 @@ DEFAULT_CANDIDATE_PHRASES = {
 }
 
 TOKEN_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z'\-]+")
+
+GRAPH_OBJECT_TYPES = {
+    "has_instructor": "instructor",
+    "is_of_type": "course_type",
+    "taught_at": "location",
+    TEACHES_CONCEPT: "concept",
+    DEVELOPS_PROFICIENCY_IN: "skill",
+    PROVIDES_MATERIAL: "material",
+    BELONGS_TO_THEME: "theme",
+}
+
+GRAPH_RESERVED_METADATA_KEYS = {"subject", "object", "predicate"}
 
 
 def _course_identifier(course: dict) -> str:
@@ -105,6 +139,101 @@ def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
         else:
             sanitized[key] = str(value)
     return sanitized
+
+
+def _node_uid(name: str, suffix: Optional[Any] = None) -> str:
+    base = _slugify(name) if name else "node"
+    if suffix:
+        suffix_slug = _slugify(str(suffix))
+        if suffix_slug:
+            base = f"{base}_{suffix_slug}"
+    return base or "node"
+
+
+def _graph_node_props(
+    name: str,
+    metadata: Dict[str, Any],
+    entity_type: str,
+    suffix: Optional[Any] = None,
+) -> tuple[str, Dict[str, Any]]:
+    uid = _node_uid(name, suffix)
+    props = {
+        "uid": uid,
+        "name": name or entity_type.title(),
+        "entity_type": entity_type,
+    }
+    for key, value in metadata.items():
+        if key in GRAPH_RESERVED_METADATA_KEYS:
+            continue
+        if value is None:
+            continue
+        if isinstance(value, (str, int, float, bool)):
+            props[key] = value
+        else:
+            props[key] = str(value)
+    return uid, props
+
+
+def _subject_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    fields = {
+        "course_id": metadata.get("course_id"),
+        "class_id": metadata.get("class_id"),
+        "title": metadata.get("title"),
+    }
+    return {k: v for k, v in fields.items() if v is not None}
+
+
+def _object_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    obj_meta: Dict[str, Any] = {}
+    if "term" in metadata:
+        obj_meta["term"] = metadata["term"]
+    return obj_meta
+
+
+def build_graph_relationships(triples: List[dict]) -> List[Dict[str, Any]]:
+    relationships: List[Dict[str, Any]] = []
+    for triple in triples:
+        metadata = triple.get("metadata", {})
+        subject = metadata.get("subject")
+        obj = metadata.get("object")
+        predicate = metadata.get("predicate")
+        if not subject or not obj or not predicate:
+            continue
+
+        subject_meta = _subject_metadata(metadata)
+        object_meta = _object_metadata(metadata)
+
+        subject_uid, subject_props = _graph_node_props(
+            subject,
+            subject_meta,
+            entity_type="course",
+            suffix=subject_meta.get("course_id") or subject_meta.get("class_id"),
+        )
+
+        object_type = GRAPH_OBJECT_TYPES.get(predicate, "entity")
+        object_uid, object_props = _graph_node_props(
+            obj,
+            object_meta,
+            entity_type=object_type,
+            suffix=object_meta.get("term") or obj,
+        )
+
+        relationships.append(
+            {
+                "subject_id": subject_uid,
+                "subject_props": subject_props,
+                "object_id": object_uid,
+                "object_props": object_props,
+                "rel_id": triple["id"],
+                "rel_props": {
+                    "predicate": predicate,
+                    "text": triple.get("text"),
+                    "metadata_json": json.dumps(metadata, ensure_ascii=False),
+                },
+            }
+        )
+
+    return relationships
 
 
 def build_kg_triples(courses: List[dict]) -> List[dict]:
@@ -169,6 +298,8 @@ def build_course_chunks(courses: List[dict]) -> List[dict]:
             narrative_parts.append(f"Description: {course['description']}")
 
         text = ". ".join(part.strip() for part in narrative_parts if part)
+        if len(text) > MAX_CHUNK_CHARS:
+            text = text[:MAX_CHUNK_CHARS].rstrip() + "…"
         chunk_id = f"chunk::{_course_identifier(course)}"
         chunks.append(
             {
@@ -240,7 +371,7 @@ class CourseTextAnalytics:
             return token[:-3]
         if token.endswith("ed") and len(token) > 3:
             return token[:-2]
-        if token.endswith("s") and len(token) > 3:
+        if token.endswith("s") and len(token) > 3 and not token.endswith("ss"):
             return token[:-1]
         return token
 
@@ -390,11 +521,9 @@ class GraphRAGService:
         if self.provider_name != "chroma":
             raise ValueError("GraphRAG is currently supported only with the Chroma provider")
 
-        persist_dir = os.environ.get("CHROMA_PERSIST_DIR") or ensure_chroma_persist_dir()
-        kg_collection = os.environ.get("GRAPH_RAG_KG_COLLECTION", self.DEFAULT_KG_COLLECTION)
-        chunk_collection = os.environ.get(
-            "GRAPH_RAG_CHUNK_COLLECTION", self.DEFAULT_CHUNK_COLLECTION
-        )
+        persist_dir = ensure_chroma_persist_dir()
+        kg_collection = self.DEFAULT_KG_COLLECTION
+        chunk_collection = self.DEFAULT_CHUNK_COLLECTION
 
         provider_kwargs: Dict[str, Any] = {}
         if persist_dir:
@@ -410,23 +539,41 @@ class GraphRAGService:
             collection_name=chunk_collection,
             **provider_kwargs,
         )
-        batch_env = os.environ.get("GRAPH_RAG_BATCH_SIZE")
-        if batch_env:
-            try:
-                self.batch_size = max(1, int(batch_env))
-            except ValueError:
-                self.batch_size = self.DEFAULT_BATCH_SIZE
-        else:
-            self.batch_size = self.DEFAULT_BATCH_SIZE
+        self.batch_size = self.DEFAULT_BATCH_SIZE
+
+        self.neo4j_store: Optional[Neo4jGraphStore] = None
+        self.neo4j_enabled = os.environ.get("GRAPH_RAG_USE_NEO4J", "false").lower() == "true"
+        if self.neo4j_enabled:
+            neo4j_uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+            neo4j_user = os.environ.get("NEO4J_USER", "neo4j")
+            neo4j_password = os.environ.get("NEO4J_PASSWORD")
+            if not neo4j_password:
+                raise ValueError("NEO4J_PASSWORD must be set when GRAPH_RAG_USE_NEO4J=true")
+            neo4j_batch_size = 500
+            self.neo4j_store = Neo4jGraphStore(
+                uri=neo4j_uri,
+                user=neo4j_user,
+                password=neo4j_password,
+                batch_size=neo4j_batch_size,
+            )
 
     def index_courses(self, courses: List[dict]) -> Dict[str, int]:
         kg_triples = build_kg_triples(courses)
         chunks = build_course_chunks(courses)
+        graph_relationships = build_graph_relationships(kg_triples)
 
         self._replace_collection(self.kg_store, kg_triples)
         self._replace_collection(self.chunk_store, chunks)
+        if self.neo4j_store and graph_relationships:
+            print(f"[GraphRAG] Writing {len(graph_relationships)} relationships to Neo4j")
+            self.neo4j_store.replace_graph(graph_relationships)
+            print("[GraphRAG] Neo4j write complete")
 
-        return {"kg_triples": len(kg_triples), "course_chunks": len(chunks)}
+        return {
+            "kg_triples": len(kg_triples),
+            "course_chunks": len(chunks),
+            "graph_relationships": len(graph_relationships),
+        }
 
     def hybrid_search(
         self,
@@ -443,16 +590,28 @@ class GraphRAGService:
             "chunks": self._shape_results(chunk_results),
         }
 
+    def graph_neighbors(self, value: str, limit: int = 25) -> Dict[str, Any]:
+        if not self.neo4j_store:
+            raise ValueError("Graph neighbors require Neo4j. Set GRAPH_RAG_USE_NEO4J=true.")
+        limit = max(1, min(limit, 100))
+        return self.neo4j_store.neighbors(value, limit)
+
     def _replace_collection(self, store, payload: List[dict]) -> None:
         if not payload:
             return
         ids = [item["id"] for item in payload]
         documents = [item["text"] for item in payload]
         metadatas = [item["metadata"] for item in payload]
-        try:
-            store.delete(ids)
-        except Exception:
-            pass
+        if hasattr(store, "reset"):
+            try:
+                store.reset()
+            except Exception:
+                pass
+        else:
+            try:
+                store.delete(ids)
+            except Exception:
+                pass
 
         for start in range(0, len(ids), self.batch_size):
             end = start + self.batch_size
@@ -475,6 +634,20 @@ class GraphRAGService:
             "ids": ids,
             "count": len(documents),
         }
+
+    def close(self) -> None:
+        if hasattr(self.kg_store, "close"):
+            try:
+                self.kg_store.close()
+            except Exception:
+                pass
+        if hasattr(self.chunk_store, "close"):
+            try:
+                self.chunk_store.close()
+            except Exception:
+                pass
+        if self.neo4j_store:
+            self.neo4j_store.close()
 
 
 def get_graph_rag_service(provider: Optional[str] = None) -> GraphRAGService:

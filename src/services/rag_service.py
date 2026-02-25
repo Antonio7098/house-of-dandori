@@ -43,6 +43,18 @@ class VectorStoreFactory:
         return providers[provider](**kwargs)
 
 
+def _sanitize_metadata(metadata: dict) -> dict:
+    sanitized: dict = {}
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        if isinstance(value, (str, int, float, bool)):
+            sanitized[key] = value
+        else:
+            sanitized[key] = str(value)
+    return sanitized
+
+
 class RAGService:
     def __init__(self, provider: str = None, **provider_kwargs):
         self.provider_name = provider or os.environ.get(
@@ -58,13 +70,16 @@ class RAGService:
         chunks = []
         for course in courses:
             course_id = course.get("id")
-            metadata = {
-                "id": course_id,
-                "cost": course.get("cost"),
-                "course_type": course.get("course_type"),
-                "location": course.get("location"),
-                "instructor": course.get("instructor"),
-            }
+            metadata = _sanitize_metadata(
+                {
+                    "course_id": course_id,
+                    "cost": course.get("cost"),
+                    "course_type": course.get("course_type"),
+                    "location": course.get("location"),
+                    "instructor": course.get("instructor"),
+                    "title": course.get("title"),
+                }
+            )
 
             skills_list = course.get("skills") or []
             skills_text = " .".join(skills_list)

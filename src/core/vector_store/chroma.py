@@ -109,7 +109,10 @@ class ChromaDBProvider(VectorStoreProvider):
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable is required")
 
-        embedder = OpenRouterEmbedder(
+        self.collection_name = collection_name
+        self.persist_dir = persist_dir
+        self.embedding_model = embedding_model
+        self.embedder = OpenRouterEmbedder(
             api_key=api_key,
             model=embedding_model,
         )
@@ -119,9 +122,12 @@ class ChromaDBProvider(VectorStoreProvider):
         else:
             self.client = chromadb.Client()
 
+        self._ensure_collection()
+
+    def _ensure_collection(self) -> None:
         self.collection = self.client.get_or_create_collection(
-            name=collection_name,
-            embedding_function=embedder,
+            name=self.collection_name,
+            embedding_function=self.embedder,
         )
 
     def add(self, ids: list[str], documents: list[str], metadatas: list[dict]) -> None:
@@ -142,3 +148,10 @@ class ChromaDBProvider(VectorStoreProvider):
 
     def close(self) -> None:
         pass
+
+    def reset(self) -> None:
+        try:
+            self.client.delete_collection(name=self.collection_name)
+        except Exception:
+            pass
+        self._ensure_collection()

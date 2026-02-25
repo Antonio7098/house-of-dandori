@@ -195,7 +195,8 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 | DELETE | `/api/courses/<id>` | Delete course |
 | POST | `/api/upload` | Upload PDF |
 | GET | `/api/search` | Semantic search |
-| GET | `/api/graph-search` | GraphRAG hybrid search |
+| GET | `/api/graph-search` | GraphRAG hybrid search (Chroma KG + chunks) |
+| GET | `/api/graph-neighbors` | Neo4j adjacency traversal for GraphRAG |
 | POST | `/api/index` | Index courses |
 | POST | `/api/graph-index` | Index GraphRAG collections |
 | POST | `/api/reindex` | Reindex courses |
@@ -215,7 +216,11 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 | `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | None |
 | `GRAPH_RAG_KG_COLLECTION` | Chroma collection name for KG triples | `graph_kg_triples` |
 | `GRAPH_RAG_CHUNK_COLLECTION` | Chroma collection name for course chunks | `graph_course_chunks` |
-| `GRAPH_RAG_LLM_MODEL` | LLM model for GraphRAG answers | `openai/gpt-4o-mini` |
+| `GRAPH_RAG_BATCH_SIZE` | Batch size when writing Chroma collections | `2000` |
+| `GRAPH_RAG_MAX_CHUNK_CHARS` | Caps per-chunk text length to control disk usage | `2000` |
+| `GRAPH_RAG_USE_NEO4J` | Enables Neo4j graph persistence | `false` |
+| `GRAPH_RAG_NEO4J_BATCH_SIZE` | Relationships per batch when writing to Neo4j | `500` |
+| `NEO4J_URI`/`NEO4J_USER`/`NEO4J_PASSWORD` | Neo4j connection information | `bolt://localhost:7687`, `neo4j`, *(required)* |
 | `SUPABASE_URL` | Supabase project URL | - |
 | `SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key | - |
 | `SUPABASE_SECRET_KEY` | Supabase secret key | - |

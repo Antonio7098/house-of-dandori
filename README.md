@@ -14,6 +14,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation
 - Semantic search using vector embeddings
 - PDF upload and automatic course data extraction
 - Filtering by location and course type
+- GraphRAG hybrid retrieval (ChromaDB) with optional Neo4j adjacency traversal
 
 ## Getting Started
 
@@ -31,14 +32,15 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Start local PostgreSQL with Docker
+# Start local PostgreSQL with Docker (if using Supabase, skip)
 docker compose up -d
 
-# Configure environment
-cp .env.docker .env.local
-source .env.local
+# Start Neo4j (only needed if GRAPH_RAG_USE_NEO4J=true)
+docker start dandori-neo4j
 
-# Run locally
+# ChromaDB is created automatically by the app; no separate container needed
+
+# Run locally (reindexing disabled by default)
 python app.py
 ```
 
@@ -86,6 +88,7 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | POST | `/api/upload/batch` | Upload multiple PDFs |
 | GET | `/api/search` | Semantic vector search |
 | GET | `/api/graph-search` | GraphRAG hybrid search (returns KG + chunks only) |
+| GET | `/api/graph-neighbors` | Fetch adjacent nodes from Neo4j GraphRAG store |
 | POST | `/api/index` | Index courses to vector store |
 | POST | `/api/graph-index` | Index courses for GraphRAG |
 | POST | `/api/reindex` | Reindex all courses |
@@ -99,11 +102,13 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (local) |
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
-| `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | None |
-| `GRAPH_RAG_KG_COLLECTION` | Chroma collection name for KG triples | `graph_kg_triples` |
-| `GRAPH_RAG_CHUNK_COLLECTION` | Chroma collection name for course chunks | `graph_course_chunks` |
+| `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | auto-created if omitted |
+| `GRAPH_RAG_USE_NEO4J` | Toggle Neo4j graph persistence (`true`/`false`) | `false` |
+| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | Neo4j connection config (only needed when enabled) | `bolt://localhost:7687`, `neo4j`, *(required)* |
 | `REINDEX_ON_STARTUP` | Set to `false` to skip auto-indexing on boot | `true` |
 | `REINDEX_MAX_COURSES` | Limit number of courses indexed at startup (blank = all) | *(unset)* |
+
+> The rest of the GraphRAG tuning knobs (collection names, batch size, chunk cap, etc.) now ship with sensible in-code defaults, so no extra environment entries are needed unless you want to override them.
 
 ### GraphRAG Enrichment Overview
 
@@ -116,6 +121,12 @@ GraphRAG indexing mirrors `graph_rag_analysis.ipynb`:
    - Flexible n-gram mining across sliding windows.
    - Phrase candidates (`Creative Cooking`, `Wildlife Conservation`, etc.).
    - KMeans clustering (scikit-learn) to map tokens/phrases into five themes.
-4. **Enriched predicates**: Courses get `teaches_concept`, `develops_proficiency_in`, `provides_material`, and `belongs_to_theme`. Clustered phrases also receive `belongs_to_theme` edges.
+4. **Enriched predicates**: Courses get `teaches_concept`, `develops_proficiency_in`, `provides_material`, and `belongs_to_theme`. Clustered phrases also receive `belongs_to_theme` edges. The resulting triples are written to both ChromaDB (for retrieval) and, when `GRAPH_RAG_USE_NEO4J=true`, into Neo4j via `/api/graph-index`.
 
-`/api/graph-search` now returns only retrieval payloads; downstream chat endpoints handle any LLM generation.
+`/api/graph-search` now returns only retrieval payloads; downstream chat endpoints handle any LLM generation. Use `/api/graph-neighbors?value=<node>&limit=25` to inspect adjacent entities from Neo4j.
+
+### Neo4j & Disk Usage Tips
+
+- Start the local database with `docker start dandori-neo4j` before hitting `/api/graph-index` when `GRAPH_RAG_USE_NEO4J=true`.
+- Use the `limit` query parameter (e.g., `/api/graph-index?limit=200`) to reindex only a subset of courses while iterating.
+- The `GRAPH_RAG_MAX_CHUNK_CHARS` guard truncates very verbose descriptions to keep `chroma_data/` under control; tweak as needed.

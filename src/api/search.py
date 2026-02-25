@@ -21,6 +21,8 @@ def get_config():
             "vectorStoreProvider": os.environ.get("VECTOR_STORE_PROVIDER", "chroma"),
             "authEnabled": not DEV_BYPASS_AUTH,
             "supabaseConfigured": bool(SUPABASE_URL),
+            "graphNeighborsEnabled": os.environ.get("GRAPH_RAG_USE_NEO4J", "false").lower()
+            == "true",
         }
     )
 
@@ -173,6 +175,39 @@ def graph_search():
         return jsonify(error_dict), status_code
 
 
+@search_bp.route("/api/graph-neighbors", methods=["GET"])
+def graph_neighbors():
+    value = request.args.get("value", "").strip()
+    limit = int(request.args.get("limit", 25))
+
+    if not value:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Query parameter 'value' is required")
+        )
+        return jsonify(error_dict), status_code
+
+    try:
+        graph_rag = get_graph_rag()
+        if not getattr(graph_rag, "neo4j_enabled", False) or not graph_rag.neo4j_store:
+            raise BadRequestError(
+                "Graph neighbors require Neo4j. Set GRAPH_RAG_USE_NEO4J=true with valid credentials."
+            )
+
+        neighbors = graph_rag.graph_neighbors(value=value, limit=limit)
+        api_logger.log_request(
+            method="GET",
+            path="/api/graph-neighbors",
+            status_code=200,
+            duration_ms=0,
+            params={"value": value, "limit": limit},
+        )
+        return jsonify(neighbors)
+    except Exception as e:
+        api_logger.log_error(e, {"path": "/api/graph-neighbors", "method": "GET"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
+
+
 @search_bp.route("/api/index", methods=["POST"])
 @require_auth
 def index_courses():
@@ -215,17 +250,35 @@ def graph_index_courses():
         if not courses:
             return jsonify({"message": "No courses to index", "count": 0})
 
+        limit_param = request.args.get("limit")
+        course_limit: Optional[int] = None
+        if limit_param:
+            try:
+                course_limit = max(1, int(limit_param))
+            except ValueError:
+                raise BadRequestError("Query parameter 'limit' must be an integer")
+
+        if course_limit and len(courses) > course_limit:
+            courses = courses[:course_limit]
+
         graph_rag = get_graph_rag()
         counts = graph_rag.index_courses(courses)
-        
+
         api_logger.log_request(
             method="POST",
             path="/api/graph-index",
             status_code=200,
             duration_ms=0,
             count=len(courses),
+            params={"limit": course_limit} if course_limit else None,
         )
-        return jsonify({"message": "GraphRAG collections indexed", "counts": counts})
+        return jsonify(
+            {
+                "message": "GraphRAG collections indexed",
+                "counts": counts,
+                "course_limit": course_limit,
+            }
+        )
     except Exception as e:
         api_logger.log_error(e, {"path": "/api/graph-index", "method": "POST"})
         error_dict, status_code = handle_exception(e)

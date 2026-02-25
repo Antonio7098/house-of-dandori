@@ -93,6 +93,10 @@ When adding new features or files:
 | `DATABASE_URL` | Supabase PostgreSQL connection string |
 | `OPENROUTER_API_KEY` | Required for vector embeddings |
 | `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` |
+| `CHROMA_PERSIST_DIR` | Directory for local Chroma persistence |
+| `GRAPH_RAG_*` | GraphRAG settings (collections, batch size, chunk cap) |
+| `GRAPH_RAG_USE_NEO4J` | Enables Neo4j persistence for GraphRAG |
+| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | Neo4j connectivity |
 | `ENVIRONMENT` | `development` or `production` | `development` |
 
 ### Lazy Loading
