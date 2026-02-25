@@ -267,22 +267,25 @@ class VertexAIVectorSearchProvider(VectorStoreProvider):
 
         collection_name = f"projects/{self.project}/locations/{self.location}/collections/{self.collection_id}"
         
-        # Build query request
-        query = vectorsearch_v1beta.Query(
-            vector=query_embedding,
-            neighbor_count=n_results,
+        # Build vector search request for V2
+        vector_search = vectorsearch_v1beta.VectorSearch(
+            search_field="embedding",  # Our vector field name
+            vector={"values": query_embedding},
+            top_k=n_results,
         )
         
         # Add filter if provided (V2 uses dict-based filtering)
         if filter_dict:
-            query.filter = filter_dict
+            vector_search.filter = filter_dict
 
-        request = vectorsearch_v1beta.FindNeighborsRequest(
-            collection=collection_name,
-            queries=[query],
+        request = vectorsearch_v1beta.SearchDataObjectsRequest(
+            parent=collection_name,
+            vector_search=vector_search,
         )
 
-        response = self.collection_client.find_neighbors(request=request)
+        # Use DataObjectSearchServiceClient for V2 search
+        search_client = vectorsearch_v1beta.DataObjectSearchServiceClient()
+        response = search_client.search_data_objects(request=request)
 
         # Parse response
         ids = []
@@ -290,13 +293,13 @@ class VertexAIVectorSearchProvider(VectorStoreProvider):
         documents = []
         metadatas = []
 
-        if response.nearest_neighbors:
-            for neighbor in response.nearest_neighbors[0].neighbors:
-                ids.append(neighbor.data_object.id)
-                distances.append(neighbor.distance)
+        if response.results:
+            for result in response.results:
+                ids.append(result.data_object.name.split("/")[-1])  # Extract ID from name
+                distances.append(result.distance if hasattr(result, 'distance') else 0.0)
                 
                 # Extract document content and metadata
-                data = dict(neighbor.data_object.data)
+                data = dict(result.data_object.data)
                 doc_content = data.pop("page_content", "")
                 documents.append(doc_content)
                 metadatas.append(data)
