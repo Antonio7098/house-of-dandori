@@ -108,7 +108,7 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | auto-created if omitted |
 | `GRAPH_RAG_USE_NEO4J` | Toggle Neo4j graph persistence (`true`/`false`) | `false` |
 | `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | Neo4j connection config (only needed when enabled) | `bolt://localhost:7687`, `neo4j`, *(required)* |
-| `REINDEX_ON_STARTUP` | Set to `false` to skip auto-indexing on boot | `true` |
+| `REINDEX_ON_STARTUP` | Set to `true` to enable auto-indexing on boot | `false` |
 | `REINDEX_MAX_COURSES` | Limit number of courses indexed at startup (blank = all) | *(unset)* |
 
 #### Development / Debug
