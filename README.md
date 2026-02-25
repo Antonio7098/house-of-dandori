@@ -111,6 +111,24 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `REINDEX_ON_STARTUP` | Set to `false` to skip auto-indexing on boot | `true` |
 | `REINDEX_MAX_COURSES` | Limit number of courses indexed at startup (blank = all) | *(unset)* |
 
+#### Development / Debug
+| `DEV_BYPASS_AUTH` | Skip auth in development mode | `true` |
+| `DB_PATH` | SQLite file path when DATABASE_URL is unset | `courses.db` |
+| `LOG_LEVEL` | Logging level (DEBUG, INFO, WARN, ERROR) | `INFO` |
+
+#### Vertex AI (Production)
+| `GCP_PROJECT_ID` | Google Cloud project ID | Required for Vertex AI |
+| `GCP_LOCATION` | Vertex AI region | `us-central1` |
+| `VERTEX_AI_INDEX_ID` | Vertex AI vector search index ID | Required |
+| `VERTEX_AI_INDEX_ENDPOINT_ID` | Vertex AI index endpoint ID | Required |
+
+#### Supabase (Optional)
+| `SUPABASE_URL` | Supabase project URL | *(unset)* |
+| `SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key | *(unset)* |
+| `SUPABASE_SECRET_KEY` | Supabase secret key | *(unset)* |
+| `SUPABASE_ANON_KEY` | Supabase anon key alias | *(unset)* |
+| `SUPABASE_SERVICE_KEY` | Supabase service key alias | *(unset)* |
+
 > The rest of the GraphRAG tuning knobs (collection names, batch size, chunk cap, etc.) now ship with sensible in-code defaults, so no extra environment entries are needed unless you want to override them.
 >
 > **Startup behavior**: By default, reindexing on startup is enabled in development. Set `REINDEX_ON_STARTUP=false` to disable it, or trigger a one-time reindex via `POST /api/reindex`.
