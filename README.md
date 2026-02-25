@@ -42,6 +42,9 @@ docker start dandori-neo4j
 
 # Run locally (reindexing disabled by default)
 python app.py
+
+# Optional: force a one-time reindex via API
+# curl -X POST http://127.0.0.1:5000/api/reindex
 ```
 
 ### Running Tests
@@ -101,7 +104,7 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `ENVIRONMENT` | `development` or `production` | `development` |
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (local) |
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
-| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
+| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | defaults by ENVIRONMENT |
 | `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | auto-created if omitted |
 | `GRAPH_RAG_USE_NEO4J` | Toggle Neo4j graph persistence (`true`/`false`) | `false` |
 | `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | Neo4j connection config (only needed when enabled) | `bolt://localhost:7687`, `neo4j`, *(required)* |
@@ -109,6 +112,8 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `REINDEX_MAX_COURSES` | Limit number of courses indexed at startup (blank = all) | *(unset)* |
 
 > The rest of the GraphRAG tuning knobs (collection names, batch size, chunk cap, etc.) now ship with sensible in-code defaults, so no extra environment entries are needed unless you want to override them.
+>
+> **Startup behavior**: By default, reindexing on startup is enabled in development. Set `REINDEX_ON_STARTUP=false` to disable it, or trigger a one-time reindex via `POST /api/reindex`.
 
 ### GraphRAG Enrichment Overview
 
