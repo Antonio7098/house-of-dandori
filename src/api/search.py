@@ -1,5 +1,7 @@
+import json
 import os
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
+from typing import Optional
 
 from src.core.utils import parse_json_fields
 from src.core.errors import BadRequestError, handle_exception
@@ -158,9 +160,49 @@ def semantic_search():
             }
         )
     except Exception as e:
-        api_logger.log_error(e, {"path": "/api/search", "method": "GET"})
-        error_dict, status_code = handle_exception(e)
-        return jsonify(error_dict), status_code
+        # Fallback to SQL text search when vector tooling is unavailable locally.
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            use_postgres = bool(os.environ.get("DATABASE_URL"))
+            placeholder = "%s" if use_postgres else "?"
+            if use_postgres:
+                where = (
+                    "title ILIKE %s OR class_id ILIKE %s OR description ILIKE %s "
+                    "OR instructor ILIKE %s OR location ILIKE %s OR course_type ILIKE %s"
+                )
+            else:
+                where = (
+                    "title LIKE ? OR class_id LIKE ? OR description LIKE ? "
+                    "OR instructor LIKE ? OR location LIKE ? OR course_type LIKE ?"
+                )
+            pattern = f"%{query}%"
+            params = [pattern, pattern, pattern, pattern, pattern, pattern]
+            cursor.execute(f"SELECT COUNT(*) FROM courses WHERE {where}", params)
+            count_row = cursor.fetchone()
+            total = count_row[0] if count_row else 0
+
+            cursor.execute(
+                f"SELECT * FROM courses WHERE {where} ORDER BY id LIMIT {placeholder} OFFSET {placeholder}",
+                [*params, limit, offset],
+            )
+            courses = [parse_json_fields(c) for c in cursor.fetchall()]
+            conn.close()
+
+            return jsonify(
+                {
+                    "results": courses,
+                    "count": total,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": (total + limit - 1) // limit,
+                    "fallback": "sql",
+                }
+            )
+        except Exception:
+            api_logger.log_error(e, {"path": "/api/search", "method": "GET"})
+            error_dict, status_code = handle_exception(e)
+            return jsonify(error_dict), status_code
 
 
 @search_bp.route("/api/graph-search", methods=["GET"])
@@ -232,6 +274,51 @@ def graph_neighbors():
         return jsonify(neighbors)
     except Exception as e:
         api_logger.log_error(e, {"path": "/api/graph-neighbors", "method": "GET"})
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
+
+
+@search_bp.route("/api/chat", methods=["POST"])
+def chat():
+    data = request.get_json(silent=True) or {}
+    stream = bool(data.get("stream"))
+
+    try:
+        from src.services.chat_service import chat_service
+
+        if stream:
+            def sse_stream():
+                for event_name, payload in chat_service.stream_chat(data):
+                    yield f"event: {event_name}\n"
+                    yield f"data: {json.dumps(payload)}\n\n"
+
+            return Response(sse_stream(), mimetype="text/event-stream")
+
+        final_message = ""
+        artifacts = []
+        mode = data.get("mode") or "standard"
+        model = None
+        tool_events = []
+        for event_name, payload in chat_service.stream_chat(data):
+            if event_name == "text_delta":
+                final_message += payload.get("delta", "")
+            elif event_name == "message_end":
+                final_message = payload.get("message", final_message)
+                artifacts = payload.get("artifacts", [])
+                mode = payload.get("mode", mode)
+                model = payload.get("model")
+            elif event_name in {"tool_call", "tool_result", "error"}:
+                tool_events.append({"event": event_name, **payload})
+
+        return jsonify({
+            "message": final_message,
+            "artifacts": artifacts,
+            "tool_events": tool_events,
+            "mode": mode,
+            "model": model,
+        })
+    except Exception as e:
+        api_logger.log_error(e, {"path": "/api/chat", "method": "POST"})
         error_dict, status_code = handle_exception(e)
         return jsonify(error_dict), status_code
 

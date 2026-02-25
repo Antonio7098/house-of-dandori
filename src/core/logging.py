@@ -73,6 +73,12 @@ class RequestLogger:
     def __init__(self, logger_name: str = "api"):
         self.logger = get_logger(logger_name)
 
+    def log_info(self, message: str, extra: Optional[Dict[str, Any]] = None):
+        payload = extra or {}
+        if "request_id" not in payload:
+            payload["request_id"] = str(uuid4())
+        self.logger.info(message, extra=payload)
+
     def log_request(
         self,
         method: str,

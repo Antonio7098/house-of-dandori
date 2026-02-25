@@ -1,4 +1,5 @@
 import base64
+import os
 
 from flask import Flask, jsonify, make_response, render_template, request
 
@@ -17,6 +18,41 @@ def create_app():
     app = Flask(__name__, template_folder="../../templates")
     app.config["JSON_AS_ASCII"] = False
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB
+
+    allowed_origins = [
+        origin.strip()
+        for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "*").split(",")
+        if origin.strip()
+    ] or ["*"]
+
+    def _resolve_origin(request_origin: str | None) -> str | None:
+        if "*" in allowed_origins:
+            return request_origin or "*"
+        if request_origin and request_origin in allowed_origins:
+            return request_origin
+        return None
+
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            response = make_response("", 204)
+            return response
+
+    @app.after_request
+    def apply_cors(response):
+        origin = request.headers.get("Origin")
+        allowed_origin = _resolve_origin(origin)
+        if allowed_origin:
+            response.headers["Access-Control-Allow-Origin"] = allowed_origin
+            response.headers.setdefault("Vary", "Origin")
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Headers"] = (
+            "Content-Type, Authorization, X-Requested-With"
+        )
+        response.headers["Access-Control-Allow-Methods"] = (
+            "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        )
+        return response
 
     app.register_blueprint(courses_bp)
     app.register_blueprint(search_bp)

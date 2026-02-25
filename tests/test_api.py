@@ -117,3 +117,40 @@ def test_search_missing_query(client):
     assert response.status_code == 400
     data = response.get_json()
     assert "error" in data
+
+
+def test_chat_non_stream_returns_artifacts(client):
+    client.post(
+        "/api/courses",
+        json={
+            "title": "Bread Basics",
+            "instructor": "Ada Calm",
+            "location": "Leeds",
+            "course_type": "Culinary Arts",
+            "cost": "£45",
+            "description": "Learn sourdough and starter care",
+            "filename": "bread-basics.pdf",
+        },
+    )
+    response = client.post(
+        "/api/chat",
+        json={
+            "message": "show me bread classes in Leeds",
+            "filters": {"location": "Leeds", "title": "Bread"},
+            "stream": False,
+        },
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "message" in data
+    assert "artifacts" in data
+    assert isinstance(data["artifacts"], list)
+
+
+def test_chat_stream_sse(client):
+    response = client.post(
+        "/api/chat",
+        json={"message": "any course suggestions?", "stream": True},
+    )
+    assert response.status_code == 200
+    assert response.content_type.startswith("text/event-stream")

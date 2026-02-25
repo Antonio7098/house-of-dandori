@@ -96,7 +96,19 @@ class Neo4jGraphStore(GraphStore):
         )
         data = result.single()
         if not data:
-            return None
+            result = tx.run(
+                """
+                MATCH (n:Entity)
+                WHERE toLower(n.name) CONTAINS toLower($value)
+                   OR toLower(n.uid) CONTAINS toLower($value)
+                RETURN n.uid AS uid, n.name AS name, n AS node
+                LIMIT 1
+                """,
+                value=value,
+            )
+            data = result.single()
+            if not data:
+                return None
         node = data["node"]
         return {
             "uid": data["uid"],

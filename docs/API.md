@@ -372,6 +372,82 @@ Upload multiple PDF files at once.
 
 ---
 
+### Chat
+
+#### POST /api/chat
+
+Tool-calling chat endpoint with optional SSE streaming. The model can call `search_courses`, `semantic_search`, and (in graphrag mode) `graph_neighbors`. Before any tool is called, the backend enriches the prompt with initial context (SQL quick search, semantic snippets, and graph neighbors). Tool results are summarized and injected back into the conversation before the final answer, ensuring follow-up questions are grounded in the latest tool output.
+
+**Request Body:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| message | string | Yes | - | User message |
+| history | array | No | [] | Last 10 user/assistant/system turns |
+| mode | string | No | "standard" | "standard" or "graphrag" |
+| filters | object | No | {} | SQL filters for search_courses |
+| stream | boolean | No | false | Enable SSE streaming |
+| model | string | No | env `CHAT_MODEL` | OpenAI/OpenRouter model ID |
+
+**Request Example:**
+```json
+{
+  "message": "What are the skills for The Art of Lush Leaf Lamentation?",
+  "history": [
+    {"role": "user", "content": "I like nature"},
+    {"role": "assistant", "content": "Here are some nature-themed courses..."}
+  ],
+  "mode": "standard",
+  "stream": true
+}
+```
+
+**Non-streaming Response (200):**
+```json
+{
+  "message": "The Art of Lush Leaf Lamentation teaches: Botany, Crafting, Emotional Awareness, Artistry, Nature Exploration.",
+  "artifacts": [],
+  "mode": "standard",
+  "model": "openai/gpt-4o-mini",
+  "tool_events": [
+    {
+      "event": "tool_call",
+      "id": "call_abc",
+      "name": "search_courses",
+      "arguments": {"query": "Lush Leaf Lamentation"},
+      "status": "running"
+    },
+    {
+      "event": "tool_result",
+      "id": "call_abc",
+      "name": "search_courses",
+      "arguments": {"query": "Lush Leaf Lamentation"},
+      "status": "completed",
+      "result": {"courses": [...]}
+    }
+  ]
+}
+```
+
+**Streaming Response (SSE):**
+Events are emitted in order:
+- `tool_call` – when a tool starts
+- `tool_result` – when a tool finishes
+- `text_delta` – incremental markdown tokens
+- `message_end` – final message + artifacts
+
+**SSE Event Types:**
+| Event | Payload | Meaning |
+|-------|---------|---------|
+| tool_call | `{id, name, arguments, status: "running"}` | Tool execution started |
+| tool_result | `{id, name, arguments, status: "completed"|"error", result}` | Tool finished |
+| text_delta | `{delta}` | Incremental assistant markdown |
+| message_end | `{message, artifacts, mode, model}` | End of stream |
+
+**History Guidance:** Include at most the last 10 user/assistant/system messages to keep prompts lean while preserving context.
+
+---
+
 ### Search
 
 #### GET /api/search

@@ -122,6 +122,7 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | GET | `/api/search` | Semantic vector search |
 | GET | `/api/graph-search` | GraphRAG hybrid search (returns KG + chunks only) |
 | GET | `/api/graph-neighbors` | Fetch adjacent nodes from Neo4j GraphRAG store |
+| POST | `/api/chat` | Tool-calling chat (DB filter/search + semantic search + optional graph neighbors), supports SSE streaming |
 | POST | `/api/index` | Index courses to vector store |
 | POST | `/api/graph-index` | Index courses for GraphRAG |
 | POST | `/api/reindex` | Reindex all courses |
@@ -143,6 +144,8 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | Neo4j connection config (only needed when enabled) | `bolt://localhost:7687`, `neo4j`, *(required)* |
 | `REINDEX_ON_STARTUP` | Set to `true` to enable auto-indexing on boot | `false` |
 | `REINDEX_MAX_COURSES` | Limit number of courses indexed at startup (blank = all) | *(unset)* |
+| `CHAT_MODEL` | Model used by `/api/chat` tool-calling loop (OpenRouter/OpenAI compatible id) | `openai/gpt-4o-mini` |
+| `OPENROUTER_BASE_URL` | Override chat SDK base URL | `https://openrouter.ai/api/v1` |
 
 #### Development / Debug
 | `DEV_BYPASS_AUTH` | Skip auth in development mode | `true` |
@@ -186,3 +189,49 @@ GraphRAG indexing mirrors `graph_rag_analysis.ipynb`:
 - Start the local database with `docker start dandori-neo4j` before hitting `/api/graph-index` when `GRAPH_RAG_USE_NEO4J=true`.
 - Use the `limit` query parameter (e.g., `/api/graph-index?limit=200`) to reindex only a subset of courses while iterating.
 - The `GRAPH_RAG_MAX_CHUNK_CHARS` guard truncates very verbose descriptions to keep `chroma_data/` under control; tweak as needed.
+
+### Chat Endpoint (`/api/chat`)
+
+`POST /api/chat` supports model tool-calling with:
+- `search_courses` (SQL filtering across course columns)
+- `semantic_search` (vector search)
+- `graph_neighbors` (Neo4j adjacency when `mode=graphrag`)
+
+Before any tool is called, the backend automatically enriches the system prompt with:
+
+1. A quick SQL search (top 3 matches)
+2. Semantic search snippets (top 3 chunks)
+3. Graph neighbors (if `mode=graphrag` and Neo4j is enabled)
+
+This ensures the model starts with immediate context while still being forced to call the relevant tools. Each tool execution also emits a textual summary (course metadata, semantic matches, or graph context) that is injected back into the conversation before the final answer, so follow-up questions ("what are the skills?", "who teaches course 3?") are grounded in the latest tool output.
+
+It returns `display(course_id)` tokens in assistant text and resolves them to `artifacts` for frontend rendering. SSE streams expose `tool_call` + `tool_result` pairs so the UI can render "_tool activity_" indicators while the narrative streams in.
+
+Non-streaming request:
+
+```bash
+curl -sS http://127.0.0.1:5000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Find beginner cooking classes in Leeds",
+    "mode": "standard",
+    "filters": {"location": "Leeds"},
+    "history": ["last 10 messages here"],
+    "stream": false
+  }'
+```
+
+Streaming (SSE) request:
+
+```bash
+curl -N http://127.0.0.1:5000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Find wildlife courses and include graph context",
+    "mode": "graphrag",
+    "history": ["last 10 messages here"],
+    "stream": true
+  }'
+```
+
+SSE emits event types such as `tool_call`, `tool_result`, `text_delta`, and `message_end` so the UI can indicate tool usage in real time. Frontend clients should include at most the **last 10** user/assistant/system turns in the `history` array to keep prompts lean while preserving context.

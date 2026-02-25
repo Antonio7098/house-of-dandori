@@ -57,6 +57,7 @@ The School of Dandori course management platform is built with a layered archite
 │   └── services/
 │       ├── __init__.py     # Unified get_service() factory
 │       ├── rag_service.py  # Vector search abstraction
+│       ├── chat_service.py # Tool-calling chat orchestration + streaming events
 │       └── graph_rag_service.py # GraphRAG dual-collection hybrid search
 │
 ├── scripts/
@@ -106,6 +107,54 @@ The School of Dandori course management platform is built with a layered archite
 - **Factory pattern**: `VectorStoreFactory.create()` instantiates providers
 - **Lazy loading**: Heavy imports inside functions to reduce memory usage
 - **Environment-based config**: Runtime behavior controlled via env vars
+
+---
+
+## Chat Service (`src/services/chat_service.py`)
+
+The chat endpoint orchestrates a multi-round tool-calling loop with streaming SSE events and automatic context enrichment.
+
+### Flow Overview
+
+1. **Initial context enrichment** – Before any LLM call, the service builds a lightweight “Initial Dandori context”:
+   - Quick SQL search (top 3 matches)
+   - Semantic search snippets (top 3 chunks)
+   - Graph neighbors (if `mode=graphrag` and Neo4j is enabled)
+   This is injected as a system message so the model starts with immediate grounding.
+
+2. **Tool-calling loop** – Up to 5 rounds:
+   - The model is forced to call at least one of: `search_courses`, `semantic_search`, or `graph_neighbors`.
+   - After the first successful tool call, the loop stops forcing tools and allows the model to synthesize the final answer.
+   - Each tool execution emits a `tool_call` event, runs the tool, then emits a `tool_result` event.
+   - Tool results are also formatted into human-readable summaries and collected in `tool_context_messages`.
+
+3. **Final narrative pass** – If the model provides no further tool calls:
+   - All collected tool summaries are injected back into the conversation as system “Tool context” messages.
+   - A final streaming generation pass produces the assistant’s answer, streamed as `text_delta` events.
+   - The stream ends with `message_end`, including any resolved `artifacts` from `display(course_id)` tokens.
+
+### SSE Event Types
+
+| Event | Payload | Meaning |
+|-------|---------|---------|
+| `tool_call` | `{id, name, arguments, status: "running"}` | Tool execution started |
+| `tool_result` | `{id, name, arguments, status: "completed"|"error", result}` | Tool finished with JSON-safe result |
+| `text_delta` | `{delta}` | Incremental markdown token from the assistant |
+| `message_end` | `{message, artifacts, mode, model}` | End of stream; final message and any course artifacts |
+
+### History and Prompt Management
+
+- Frontend should send at most the last 10 user/assistant/system turns in the `history` array.
+- The backend always injects the initial context and tool summaries, so the model never operates blind.
+- If the loop exhausts rounds without a final answer, a graceful fallback emits a short local-search list.
+
+### Tool Formatters
+
+- `_format_course_results` – Renders SQL course rows with skills/objectives/description.
+- `_format_semantic_results` – Lists semantic matches with metadata.
+- `_format_graph_results` – Shows graph neighbor labels and scores.
+
+These summaries are the “Tool context” injected before the final answer, ensuring follow-up questions (“what are the skills?”, “who teaches course 3?”) are grounded in the latest tool output.
 
 ---
 
@@ -203,6 +252,7 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 | GET | `/api/search` | Semantic search |
 | GET | `/api/graph-search` | GraphRAG hybrid search (Chroma KG + chunks) |
 | GET | `/api/graph-neighbors` | Neo4j adjacency traversal for GraphRAG |
+| POST | `/api/chat` | Tool-calling chat endpoint (supports SSE stream + tool events) |
 | POST | `/api/index` | Index courses |
 | POST | `/api/graph-index` | Index GraphRAG collections |
 | POST | `/api/reindex` | Reindex courses |

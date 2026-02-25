@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
+from src.core.logging import api_logger
 from src.services.base_rag_service import BaseRAGService
 from src.services.graph_builders import (
     build_course_chunks,
@@ -45,6 +46,14 @@ class GraphRAGService(BaseRAGService):
                 raise ValueError(
                     "NEO4J_PASSWORD must be set when GRAPH_RAG_USE_NEO4J=true"
                 )
+            api_logger.log_info(
+                "GraphRAG Neo4j config",
+                {
+                    "uri": os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
+                    "user": os.environ.get("NEO4J_USER", "neo4j"),
+                    "password_len": len(neo4j_password),
+                },
+            )
             neo4j_batch = os.environ.get("GRAPH_RAG_NEO4J_BATCH_SIZE")
             try:
                 neo4j_batch_size = max(1, int(neo4j_batch)) if neo4j_batch else 500
