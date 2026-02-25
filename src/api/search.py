@@ -34,18 +34,26 @@ graph_rag_provider = None
 
 def get_rag():
     global rag_service
-    if rag_service is None:
+    provider_override = request.args.get("provider")
+    desired_provider = provider_override or os.environ.get("VECTOR_STORE_PROVIDER")
+    current_provider = getattr(rag_service, "provider_name", None)
+
+    if rag_service is None or (
+        desired_provider and current_provider != desired_provider
+    ):
         from src.services.rag_service import get_rag_service
 
-        provider = request.args.get("provider")
-        rag_service = get_rag_service(provider)
+        rag_service = get_rag_service(desired_provider)
     return rag_service
 
 
 def get_graph_rag():
     global graph_rag_service, graph_rag_provider
-    provider = request.args.get("provider")
-    if graph_rag_service is None or (provider and provider != graph_rag_provider):
+    provider_override = request.args.get("provider")
+    env_provider = os.environ.get("GRAPH_RAG_VECTOR_PROVIDER", "chroma")
+    provider = provider_override or env_provider
+
+    if graph_rag_service is None or provider != graph_rag_provider:
         from src.services.graph_rag_service import get_graph_rag_service
 
         graph_rag_service = get_graph_rag_service(provider)
@@ -70,9 +78,23 @@ def semantic_search():
         rag = get_rag()
         results = rag.search(query, n_results=limit + offset)
 
-        course_ids = []
-        if results.get("ids") and results["ids"][0]:
-            course_ids = [int(id.split("_")[0]) for id in results["ids"][0]]
+        course_ids: list[int] = []
+        metadatas = results.get("metadatas") or []
+        if metadatas and isinstance(metadatas[0], list):
+            metadata_rows = metadatas[0]
+        else:
+            metadata_rows = metadatas
+
+        for metadata in metadata_rows:
+            if not isinstance(metadata, dict):
+                continue
+            course_id = metadata.get("course_id")
+            if course_id is None:
+                continue
+            try:
+                course_ids.append(int(course_id))
+            except (TypeError, ValueError):
+                continue
 
         total = len(course_ids)
         paginated_ids = course_ids[offset : offset + limit]
@@ -102,13 +124,19 @@ def semantic_search():
         conn.close()
 
         ordered_results = []
+        distances = results.get("distances") or []
+        if distances and isinstance(distances[0], list):
+            distance_list = distances[0]
+        else:
+            distance_list = distances
+
         for i, course_id in enumerate(paginated_ids):
             if course_id in courses:
                 course = courses[course_id]
                 real_idx = offset + i
                 course["_distance"] = (
-                    results["distances"][0][real_idx]
-                    if results.get("distances")
+                    distance_list[real_idx]
+                    if real_idx < len(distance_list)
                     else None
                 )
                 ordered_results.append(course)

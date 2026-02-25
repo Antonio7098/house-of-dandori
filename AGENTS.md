@@ -35,6 +35,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full tech stack details.
    ```
 
 2. **Test new features with cURL** - Start the server (`python3 app.py`) and local db (`docker compose up -d`) test your endpoints manually
+   - When touching search/RAG logic, run `python scripts/reindex_services.py --mode both` to rebuild the vector + graph indices, and hit `/api/search` + `/api/graph-search` via curl afterwards.
 
 3. **Update documentation** if you've made changes that affect:
    - API endpoints (update README.md)
@@ -79,6 +80,7 @@ When adding new features or files:
 - `src/api/search.py` - Vector search and GraphRAG endpoints
 - `src/services/rag_service.py` - Standard vector store abstraction
 - `src/services/graph_rag_service.py` - GraphRAG specific KG and chunk builders
+- `scripts/reindex_services.py` - CLI helper to rebuild RAG and GraphRAG indices without needing auth
 - `src/core/vector_store/chroma.py` - ChromaDB implementation
 - `src/core/vector_store/vertexai.py` - Vertex AI implementation
 - `src/models/database.py` - Database operations
@@ -92,11 +94,12 @@ When adding new features or files:
 |----------|-------------|
 | `DATABASE_URL` | Supabase PostgreSQL connection string |
 | `OPENROUTER_API_KEY` | Required for vector embeddings |
-| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` |
+| `VECTOR_STORE_PROVIDER` | `chroma`, `qdrant`, or `vertexai` |
 | `CHROMA_PERSIST_DIR` | Directory for local Chroma persistence |
 | `GRAPH_RAG_*` | GraphRAG settings (collections, batch size, chunk cap) |
 | `GRAPH_RAG_USE_NEO4J` | Enables Neo4j persistence for GraphRAG |
 | `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | Neo4j connectivity |
+| `GRAPH_RAG_VECTOR_PROVIDER` | Forces GraphRAG to use a specific provider (`chroma` by default) |
 | `ENVIRONMENT` | `development` or `production` | `development` |
 
 ### Lazy Loading

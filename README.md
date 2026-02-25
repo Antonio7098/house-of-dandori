@@ -40,12 +40,42 @@ docker start dandori-neo4j
 
 # ChromaDB is created automatically by the app; no separate container needed
 
+# Optional: point VECTOR_STORE_PROVIDER to qdrant for managed hosting
+# export VECTOR_STORE_PROVIDER=qdrant
+# export QDRANT_URL="https://your-qdrant-instance.qdrant.io:6333"
+# export QDRANT_API_KEY="<api key>"
+
 # Run locally (no auto-indexing)
 python app.py
 
 # Optional: force a one-time reindex via API
 # curl -X POST http://127.0.0.1:5000/api/reindex
+
+# Or rebuild vector + graph indices via script (respects DEV_BYPASS_AUTH)
+python scripts/reindex_services.py --mode both
 ```
+
+## Reindexing Vector & Graph Stores
+
+Use this when you need to refresh both the semantic vector collection and the GraphRAG stores after bulk data changes.
+
+```bash
+# Rebuild both services (defaults to chroma provider)
+python scripts/reindex_services.py --mode both
+
+# Vector only / Graph only
+python scripts/reindex_services.py --mode vector
+python scripts/reindex_services.py --mode graph
+
+# Limit to a subset of courses and override provider
+python scripts/reindex_services.py --mode graph --limit 200 --provider chroma
+```
+
+Environment tips:
+
+- `VECTOR_STORE_PROVIDER` / `CHROMA_PERSIST_DIR` are automatically defaulted when running the script, but you can export your own values beforehand.
+- `DEV_BYPASS_AUTH=true` allows local curl calls to `/api/reindex` / `/api/graph-index` without a Supabase token.
+- Enable `GRAPH_RAG_USE_NEO4J=true` and ensure Neo4j is running before hitting the GraphRAG endpoints.
 
 ### Running Tests
 
@@ -104,8 +134,11 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `ENVIRONMENT` | `development` or `production` | `development` |
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (local) |
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
-| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | defaults by ENVIRONMENT |
+| `VECTOR_STORE_PROVIDER` | `chroma`, `qdrant`, or `vertexai` | defaults by ENVIRONMENT |
 | `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | auto-created if omitted |
+| `QDRANT_URL` / `QDRANT_API_KEY` | Remote/vector cloud endpoint + auth (needed for `qdrant`) | *(unset)* |
+| `QDRANT_COLLECTION` | Optional override for Qdrant collection name | `courses` |
+| `GRAPH_RAG_VECTOR_PROVIDER` | Forces GraphRAG to use a specific provider (defaults to `chroma`) | `chroma` |
 | `GRAPH_RAG_USE_NEO4J` | Toggle Neo4j graph persistence (`true`/`false`) | `false` |
 | `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | Neo4j connection config (only needed when enabled) | `bolt://localhost:7687`, `neo4j`, *(required)* |
 | `REINDEX_ON_STARTUP` | Set to `true` to enable auto-indexing on boot | `false` |

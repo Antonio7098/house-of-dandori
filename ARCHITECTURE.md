@@ -10,8 +10,9 @@ The School of Dandori course management platform is built with a layered archite
 
 - **Backend**: Flask (Python 3.12)
 - **Database**: PostgreSQL (hosted on Supabase)
-- **Vector Store**: 
+- **Vector Store**:
   - ChromaDB (local development)
+  - Qdrant (managed or self-hosted instances)
   - Vertex AI Vector Search (production)
 - **Embeddings**: OpenRouter API (google/gemini-embedding-001)
 - **Deployment**: Google Cloud Run
@@ -54,8 +55,12 @@ The School of Dandori course management platform is built with a layered archite
 │   │   └── __init__.py     # Course extraction from PDFs
 │   │
 │   └── services/
+│       ├── __init__.py     # Unified get_service() factory
 │       ├── rag_service.py  # Vector search abstraction
 │       └── graph_rag_service.py # GraphRAG dual-collection hybrid search
+│
+├── scripts/
+│   └── reindex_services.py # Utility to rebuild vector + graph indices on demand
 │
 ├── templates/
 │   ├── index.html          # Main UI
@@ -167,10 +172,11 @@ CREATE TABLE courses (
 
 ## Vector Search
 
-### Providers
+### Providers & Index Lifecycle
 
 - **ChromaDB**: Local development (in-memory or file-based)
 - **Vertex AI Vector Search**: Production deployment
+- **Reindex tooling**: `scripts/reindex_services.py --mode both` invokes the shared `get_service()` factory so that both the simple RAG and GraphRAG services rebuild their collections from the `courses` table without needing authenticated API calls.
 
 ### Embeddings
 
@@ -212,16 +218,21 @@ Vector store providers are lazy-loaded to reduce memory usage. In development mo
 | `DB_PATH` | SQLite database path | `courses.db` |
 | `OPENROUTER_API_KEY` | API key for embeddings | Required |
 | `ENVIRONMENT` | `development` or `production` | `development` |
-| `VECTOR_STORE_PROVIDER` | `chroma` or `vertexai` | auto-set by ENVIRONMENT |
+| `VECTOR_STORE_PROVIDER` | `chroma`, `qdrant`, or `vertexai` | auto-set by ENVIRONMENT |
 | `CHROMA_PERSIST_DIR` | Directory to persist ChromaDB files | None |
+| `QDRANT_URL` / `QDRANT_API_KEY` | Qdrant endpoint + API key (required for `qdrant`) | None |
+| `QDRANT_COLLECTION` | Override default Qdrant collection name | `courses` |
+| `QDRANT_PREFER_GRPC` | Set to `true` to toggle gRPC transport | None |
+| `GRAPH_RAG_VECTOR_PROVIDER` | Forces GraphRAG to use a specific provider (`chroma` by default) | `chroma` |
 | `GRAPH_RAG_KG_COLLECTION` | Chroma collection name for KG triples | `graph_kg_triples` |
 | `GRAPH_RAG_CHUNK_COLLECTION` | Chroma collection name for course chunks | `graph_course_chunks` |
 | `GRAPH_RAG_BATCH_SIZE` | Batch size when writing Chroma collections | `2000` |
 | `GRAPH_RAG_MAX_CHUNK_CHARS` | Caps per-chunk text length to control disk usage | `2000` |
 | `GRAPH_RAG_USE_NEO4J` | Enables Neo4j graph persistence | `false` |
 | `GRAPH_RAG_NEO4J_BATCH_SIZE` | Relationships per batch when writing to Neo4j | `500` |
+| `REINDEX_ON_STARTUP` | Enables automatic reindex during app boot (dev only) | `false` |
+| `DEV_BYPASS_AUTH` | Skip auth in development | `true` in development |
 | `NEO4J_URI`/`NEO4J_USER`/`NEO4J_PASSWORD` | Neo4j connection information | `bolt://localhost:7687`, `neo4j`, *(required)* |
 | `SUPABASE_URL` | Supabase project URL | - |
 | `SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key | - |
 | `SUPABASE_SECRET_KEY` | Supabase secret key | - |
-| `DEV_BYPASS_AUTH` | Skip auth in development | `true` in development |
