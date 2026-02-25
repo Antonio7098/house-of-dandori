@@ -25,7 +25,7 @@ def reindex_on_startup():
         except ValueError:
             sample_size = None
 
-    # Set default provider based on environment (can still be overridden by VECTOR_STORE_PROVIDER env)
+# Set default provider based on environment (can still be overridden by VECTOR_STORE_PROVIDER env)
     if env == "production":
         os.environ.setdefault("VECTOR_STORE_PROVIDER", "vertexai")
         print(
@@ -34,7 +34,6 @@ def reindex_on_startup():
         return
     else:
         os.environ.setdefault("VECTOR_STORE_PROVIDER", "chroma")
-
     if not enabled:
         print("Startup reindex disabled via REINDEX_ON_STARTUP")
         return

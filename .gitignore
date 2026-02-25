@@ -15,3 +15,7 @@ None/
 *.ipynb
 .chroma/
 chroma_data/
+
+# Google Cloud SDK (installed locally)
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz
