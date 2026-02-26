@@ -1,0 +1,95 @@
+{
+  "entity": "Mystical Moss Mosaics",
+  "found": true,
+  "neighbors": [
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "expression",
+      "neighbor_uid": "expression_expression",
+      "predicate": "teaches_concept",
+      "text": "Mystical Moss Mosaics teaches concept expression"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "us",
+      "neighbor_uid": "us_us",
+      "predicate": "teaches_concept",
+      "text": "Mystical Moss Mosaics teaches concept us"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "develop",
+      "neighbor_uid": "develop_develop",
+      "predicate": "teaches_concept",
+      "text": "Mystical Moss Mosaics teaches concept develop"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "journey",
+      "neighbor_uid": "journey_journey",
+      "predicate": "teaches_concept",
+      "text": "Mystical Moss Mosaics teaches concept journey"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "guide",
+      "neighbor_uid": "guide_guide",
+      "predicate": "teaches_concept",
+      "text": "Mystical Moss Mosaics teaches concept guide"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "Artistic design templates",
+      "neighbor_uid": "artistic_design_templates_artistic_design_templates",
+      "predicate": "provides_material",
+      "text": "Mystical Moss Mosaics provides material Artistic design templates"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "piece",
+      "neighbor_uid": "piece_piece",
+      "predicate": "teaches_concept",
+      "text": "Mystical Moss Mosaics teaches concept piece"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "touch",
+      "neighbor_uid": "touch_touch",
+      "predicate": "teaches_concept",
+      "text": "Mystical Moss Mosaics teaches concept touch"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "Natural adhesive",
+      "neighbor_uid": "natural_adhesive_natural_adhesive",
+      "predicate": "provides_material",
+      "text": "Mystical Moss Mosaics provides material Natural adhesive"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "day",
+      "neighbor_uid": "day_day",
+      "predicate": "teaches_concept",
+      "text": "Mystical Moss Mosaics teaches concept day"
+    }
+  ],
+  "properties": {
+    "class_id": "CLASS_003",
+    "course_id": 3,
+    "entity_type": "course",
+    "name": "Mystical Moss Mosaics",
+    "title": "Mystical Moss Mosaics",
+    "uid": "mystical_moss_mosaics_3"
+  },
+  "uid": "mystical_moss_mosaics_3"
+}

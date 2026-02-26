@@ -258,7 +258,8 @@ def graph_neighbors():
 
     try:
         graph_rag = get_graph_rag()
-        if not getattr(graph_rag, "neo4j_enabled", False) or not graph_rag.neo4j_store:
+        graph_store = getattr(graph_rag, "graph_store", None)
+        if not getattr(graph_rag, "neo4j_enabled", False) or not graph_store:
             raise BadRequestError(
                 "Graph neighbors require Neo4j. Set GRAPH_RAG_USE_NEO4J=true with valid credentials."
             )

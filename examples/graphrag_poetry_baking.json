@@ -1,0 +1,124 @@
+{
+  "chunks": {
+    "count": 3,
+    "distances": [
+      0.6641253,
+      0.6586976,
+      0.6222429
+    ],
+    "documents": [
+      "Course Title: The Art of Edible Poetry: Culinary Sonnet Creations. Course Type: Culinary Arts. Instructor: Chef Rhymus Scone. Location: Brighton. Skills: Culinary Creativity Poetry Composition Plating Techniques, Flavor Pairing Artistic Expression. Learning Objectives: Compose culinary sonnets using food ingredients as metaphors, Learn the basics of poetic structure applied to dish presentation, Understand flavor pairings to create harmonious 'verses', Develop creative thinking by transforming literary themes into edible art, Master plating techniques that visually represent poetic forms. Provided Materials: Assorted fresh herbs and edible flowers, Selection of gourmet cheeses and charcuterie, A variety of seasonal fruits and vegetables, Edible ink pens and rice paper, Professional plating kits. Description: Step into the delightful world of 'The Art of Edible Poetry', where culinary creativity meets literary genius. Under the whimsical guidance of Chef Rhymus Scone, students will embark on a journey to create gastronomic masterpieces inspired by the timeless beauty of poetry. This class will teach you how to construct edible sonnets, where each line is thoughtfully crafted from fresh, flavorful ingredients. In this playful yet educational experience, participants will begin by exploring the basics of poetic structure. Chef Rhymus will demonstrate how to apply these principles to dish presentation, turning plates into visual poetry. You'll learn to use ingredients like rosemary and figs to convey themes, much like metaphors in a poem. Students will engage in hands-on activities, including composing their own culinary sonnets. With provided edible ink pens and rice paper, you'll literally write your sonnet's verses, while experimenting with flavor pairings to ensure each 'stanza' delights the palate. The class culminates in a gallery-style tasting, where participants present their edible poems, discussing the inspiration and creative process behind each dish. Prepare\u2026",
+      "Course Title: Cornish Pasty Poetry & Patisserie. Course Type: Traditional Skills. Instructor: Chef Rhubarb Mince. Location: Cornwall. Skills: Cooking Creative Writing Cultural History Presentation, Creative Thinking. Learning Objectives: Master the art of crafting the perfect Cornish pasty, Learn to create deliciously whimsical pasty fillings, Discover how to weave poetry into pastry making, Understand the historical significance of pasty making, Develop culinary creativity and presentation skills. Provided Materials: Organic flour and butter, Locally sourced ingredients for pasty fillings, Poetry writing materials, Aprons with Cornish patterns, Recipe and poetry booklet. Description: Welcome to the Cornish Pasty Poetry & Patisserie class, where culinary arts meet lyrical expression in the heart of Cornwall. Under the guidance of Chef Rhubarb Mince, a master pastry chef with a flair for verse, you'll embark on a delightful journey of crafting perfect Cornish pasties while spicing them up with poetic charm. Students will start by getting hands-on with the basics of pasty dough making, learning the secrets to achieving flaky perfection. As you knead and fold, Chef Mince will regale you with the rich history of the Cornish pasty, explaining its role in local culture and its fascinating evolution. Once the dough is ready, you'll dive into creating whimsical fillings, experimenting with traditional and imaginative ingredients sourced locally. But the fun doesn't stop there! You'll be encouraged to weave poetry into your patisserie process, penning verses inspired by your culinary creations. By the end of the class, participants will have mastered the art of both pasty-making and poetry, culminating in a tasting session where your culinary and literary masterpieces are shared and savored. Whether you're a budding chef or a poetic soul, this class promises a unique blend of tradition, creativity, and fun.",
+      "Course Title: Biscuit Alchemy: Turning Dough Into Joy. Course Type: Seasonal Activities. Instructor: Professor Crumbly O'Cookie. Location: York. Skills: Baking Culinary Arts Creative Cooking Food Science, Cultural Appreciation. Learning Objectives: Master the art of biscuit baking and decoration, Learn the science behind perfect textures, Explore historical and cultural biscuit recipes, Understand the role of ingredients in flavor creation, Develop creativity in recipe adaptations. Provided Materials: Variety of biscuit dough, Decorative icing in multiple colors, Rolling pins and cookie cutters, Assorted spices and flavorings, Aprons with biscuit-themed designs. Description: Join us at the School of Dandori in the heart of York for 'Biscuit Alchemy: Turning Dough Into Joy', a whimsical exploration of baking that\u2019ll tickle your taste buds and warm your soul. Led by our quirky expert, Professor Crumbly O'Cookie, this class dives into the delicious world of biscuits\u2014a staple treat that\u2019s beloved across cultures. Under Professor Crumbly's delightful guidance, students will first master the essentials of biscuit baking, learning to achieve ideal textures from crisp and buttery to soft and chewy. We\u2019ll delve into the science of baking, uncovering how precise ingredient combinations can lead to mouthwatering creations. But that's not all! Each participant will engage in decorating biscuits with an array of colorful icings, sprinkles, and edible glitter, transforming simple treats into edible art. As we bake, students will explore historical and cultural biscuit recipes, gaining an appreciation for how these humble delights have evolved and influenced our culinary landscape. The class will also encourage creativity, allowing attendees to adapt recipes and experiment with flavors using provided spices and herbs. A session of biscuit alchemy wouldn't be complete without the chance to savor these creations together. By the end of this joyful experience, attendees will not only\u2026"
+    ],
+    "ids": [
+      "e4815986-3f92-5913-b471-7c4bc4412ac4",
+      "a5e6f954-5ee0-56ff-85a3-f430efedcae3",
+      "0bb0612d-c424-5b36-b07a-7bee9708290d"
+    ],
+    "metadatas": [
+      {
+        "chunk_id": "chunk::49",
+        "class_id": "CLASS_049",
+        "cost": "\u00a385.00",
+        "course_id": 49,
+        "course_type": "Culinary Arts",
+        "instructor": "Chef Rhymus Scone",
+        "location": "Brighton",
+        "title": "The Art of Edible Poetry: Culinary Sonnet Creations"
+      },
+      {
+        "chunk_id": "chunk::2",
+        "class_id": "CLASS_002",
+        "cost": "\u00a385.00",
+        "course_id": 2,
+        "course_type": "Traditional Skills",
+        "instructor": "Chef Rhubarb Mince",
+        "location": "Cornwall",
+        "title": "Cornish Pasty Poetry & Patisserie"
+      },
+      {
+        "chunk_id": "chunk::93",
+        "class_id": "CLASS_093",
+        "cost": "\u00a375.00",
+        "course_id": 93,
+        "course_type": "Seasonal Activities",
+        "instructor": "Professor Crumbly O'Cookie",
+        "location": "York",
+        "title": "Biscuit Alchemy: Turning Dough Into Joy"
+      }
+    ]
+  },
+  "kg": {
+    "count": 5,
+    "distances": [
+      0.7240126,
+      0.7223229,
+      0.720569,
+      0.7200358,
+      0.71892977
+    ],
+    "documents": [
+      "The Art of Edible Poetry: Culinary Sonnet Creations teaches concept delightful",
+      "The Art of Edible Poetry: Culinary Sonnet Creations teaches concept like",
+      "The Art of Edible Poetry: Culinary Sonnet Creations teaches concept beauty",
+      "Cornish Pasty Poetry & Patisserie develops proficiency in Creative Writing",
+      "The Art of Edible Poetry: Culinary Sonnet Creations belongs to theme Culinary Arts and Food Cluster"
+    ],
+    "ids": [
+      "3d891eb8-2c26-5020-940b-84500913f08e",
+      "80a66614-4fca-5b51-a157-1b8a93dd14da",
+      "c7421b2a-f5da-5522-82ed-dcfc606924d5",
+      "4edc611d-d5a6-5ea5-84f5-b4386c233c7a",
+      "7afa2754-dd8e-501a-8d29-782fc0528929"
+    ],
+    "metadatas": [
+      {
+        "chunk_id": "kg::the_art_of_edible_poetry_culinary_sonnet_creations::teaches_concept::delightful",
+        "class_id": "CLASS_049",
+        "course_id": 49,
+        "object": "delightful",
+        "predicate": "teaches_concept",
+        "subject": "The Art of Edible Poetry: Culinary Sonnet Creations",
+        "title": "The Art of Edible Poetry: Culinary Sonnet Creations"
+      },
+      {
+        "chunk_id": "kg::the_art_of_edible_poetry_culinary_sonnet_creations::teaches_concept::like",
+        "class_id": "CLASS_049",
+        "course_id": 49,
+        "object": "like",
+        "predicate": "teaches_concept",
+        "subject": "The Art of Edible Poetry: Culinary Sonnet Creations",
+        "title": "The Art of Edible Poetry: Culinary Sonnet Creations"
+      },
+      {
+        "chunk_id": "kg::the_art_of_edible_poetry_culinary_sonnet_creations::teaches_concept::beauty",
+        "class_id": "CLASS_049",
+        "course_id": 49,
+        "object": "beauty",
+        "predicate": "teaches_concept",
+        "subject": "The Art of Edible Poetry: Culinary Sonnet Creations",
+        "title": "The Art of Edible Poetry: Culinary Sonnet Creations"
+      },
+      {
+        "chunk_id": "kg::cornish_pasty_poetry_patisserie::develops_proficiency_in::creative_writing",
+        "class_id": "CLASS_002",
+        "course_id": 2,
+        "object": "Creative Writing",
+        "predicate": "develops_proficiency_in",
+        "subject": "Cornish Pasty Poetry & Patisserie",
+        "title": "Cornish Pasty Poetry & Patisserie"
+      },
+      {
+        "chunk_id": "kg::the_art_of_edible_poetry_culinary_sonnet_creations::belongs_to_theme::culinary_arts_and_food_cluster",
+        "class_id": "CLASS_049",
+        "course_id": 49,
+        "object": "Culinary Arts and Food Cluster",
+        "predicate": "belongs_to_theme",
+        "subject": "The Art of Edible Poetry: Culinary Sonnet Creations",
+        "title": "The Art of Edible Poetry: Culinary Sonnet Creations"
+      }
+    ]
+  },
+  "query": "poetry and baking"
+}

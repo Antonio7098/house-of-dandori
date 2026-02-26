@@ -21,9 +21,10 @@ class GraphRAGService(BaseRAGService):
 
     def __init__(self, provider: Optional[str] = None):
         super().__init__(provider=provider)
-        if self.provider_name != "chroma":
+        supported_providers = {"chroma", "qdrant"}
+        if self.provider_name not in supported_providers:
             raise ValueError(
-                "GraphRAG is currently supported only with the Chroma provider"
+                "GraphRAG currently supports providers: chroma or qdrant"
             )
 
         kg_collection = os.environ.get(

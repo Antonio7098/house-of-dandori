@@ -1,0 +1,74 @@
+{
+  "count": 5,
+  "limit": 5,
+  "page": 1,
+  "results": [
+    {
+      "_distance": 0.6978072,
+      "class_id": "CLASS_116",
+      "cost": "\u00a395.00",
+      "course_type": "Nature Crafts",
+      "created_at": "Wed, 25 Feb 2026 21:18:28 GMT",
+      "description": "Join Professor Pippa Partridge on a whimsical journey into the world of avian architecture with 'Fantastical Feathered Friend Nesting'. This charming class combines the joy of crafting with the wonder of nature, set in the picturesque surroundings of Edinburgh. Participants will delve into the fascinating life of local bird species before rolling up their sleeves to construct bespoke birdhouses from sustainably sourced materials. Under the guidance of Professor Partridge, students will learn essential woodworking techniques, ensuring their creations are both sturdy and stylish. With an array of eco-friendly paints and decorative natural elements at their disposal, participants can let their imaginations soar as they craft unique sanctuaries that blend seamlessly into the environment. The class also features interactive storytelling sessions that explore the symbiotic relationships between birds and their habitats, highlighting the importance of conservation and sustainable practices. By the end of this enchanting experience, students will not only walk away with a personalized birdhouse but also a newfound appreciation for the delicate balance of nature and the role they can play in protecting it. Whether you're a seasoned nature enthusiast or a curious beginner, this class promises a delightful mix of creativity, learning, and laughter, making it an ideal escape from the mundane to the magical.",
+      "filename": "4d9ae96c433a4ee9b548891de14708ac_class_116_fantastical_feathered_friend_nesting.pdf",
+      "id": 116,
+      "instructor": "Professor Pippa Partridge",
+      "learning_objectives": [
+        "Understand the ecology of local bird species and their nesting habits.",
+        "Create environmentally-friendly birdhouses using sustainable materials.",
+        "Develop basic woodworking skills, including safe tool usage.",
+        "Learn about symbiotic relationships in nature through interactive storytelling.",
+        "Foster a deeper connection with nature and local wildlife."
+      ],
+      "location": "Edinburgh",
+      "pdf_url": null,
+      "provided_materials": [
+        "Sustainable wood planks",
+        "Eco-friendly paint and brushes",
+        "Woodworking tools (hammers, nails, saws)",
+        "Decorative natural elements (twigs, moss, feathers)",
+        "Bird species identification guidebook"
+      ],
+      "skills": [
+        "Woodworking Environmental Science Creative Design",
+        "Wildlife Conservation Sustainability"
+      ],
+      "title": "Fantastical Feathered Friend Nesting",
+      "updated_at": "Wed, 25 Feb 2026 21:18:28 GMT"
+    },
+    {
+      "_distance": 0.6782276,
+      "class_id": "CLASS_004",
+      "cost": "\u00a395.00",
+      "course_type": "Traditional Skills",
+      "created_at": "Wed, 25 Feb 2026 21:16:00 GMT",
+      "description": "Welcome to \"Advanced Hedgehog Husbandry,\" a charming and slightly eccentric course designed for adults with an affection for these delightful creatures. Nestled in the picturesque countryside of Norfolk, join renowned hedgehog whisperer Mr. Pricklesworth as he imparts his decades of experience in the fine art of caring for these spiky wonders. Throughout this immersive day-long class, participants will learn essential skills, starting with the basics of hedgehog nutrition and how to prepare a balanced diet of worms and berries. You'll be introduced to the enchanting world of hedgehog habitats, where you'll craft the perfect cozy environment to encourage their natural behaviors. Handling hedgehogs is an art, and Mr. Pricklesworth will guide you through the gentle techniques needed for health checks and fostering trust with these timid creatures. As you settle into the rhythm of hedgehog care, you'll find opportunities to practice mindfulness, observing their quirky antics as a meditative practice. Finally, delve into the rich folklore surrounding hedgehogs in Britain, learning tales that have been passed down through generations. By the end of the class, you'll leave with a newfound respect and affection for these nocturnal companions, along with practical skills to care for them in your own garden or hedgehog sanctuary.",
+      "filename": "36a86a8eb2c54aa387ed00ed143a27ab_class_004_Advanced_Hedgehog_Husbandry.pdf",
+      "id": 4,
+      "instructor": "Mr. Pricklesworth",
+      "learning_objectives": [
+        "Learn the basics of hedgehog care and feeding",
+        "Understand the art of hedgehog habitats and environments",
+        "Master the gentle handling and health checks of hedgehogs",
+        "Cultivate patience and mindfulness through hedgehog observation",
+        "Explore the folklore and history of hedgehogs in Britain"
+      ],
+      "location": "Norfolk",
+      "pdf_url": null,
+      "provided_materials": [
+        "Hedgehog-friendly gloves",
+        "Illustrated hedgehog care guide",
+        "Notebook and pen for logging observations",
+        "Sample hedgehog treats",
+        "Miniature hedgehog habitat kit"
+      ],
+      "skills": [
+        "Animal Care Wildlife Conservation Mindfulness Crafting",
+        "British Folklore"
+      ],
+      "title": "Advanced Hedgehog Husbandry",
+      "updated_at": "Wed, 25 Feb 2026 21:16:00 GMT"
+    }
+  ],
+  "total_pages": 1
+}

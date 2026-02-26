@@ -151,12 +151,20 @@ class Neo4jGraphStore(GraphStore):
         neighbors: List[Dict[str, Any]] = []
         for record in result:
             rel = record["rel"]
+            metadata = rel.get("metadata")
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except json.JSONDecodeError:
+                    metadata = {"raw": metadata}
+            elif not isinstance(metadata, dict):
+                metadata = {}
             neighbors.append(
                 {
                     "neighbor": record["name"],
                     "neighbor_uid": record["uid"],
                     "predicate": rel.get("predicate"),
-                    "metadata": dict(rel.get("metadata") or {}),
+                    "metadata": metadata,
                     "direction": direction,
                     "text": rel.get("text"),
                 }

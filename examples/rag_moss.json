@@ -1,0 +1,74 @@
+{
+  "count": 3,
+  "limit": 3,
+  "page": 1,
+  "results": [
+    {
+      "_distance": 0.7791299,
+      "class_id": "CLASS_088",
+      "cost": "\u00a345.00",
+      "course_type": "Nature Crafts",
+      "created_at": "Wed, 25 Feb 2026 21:17:45 GMT",
+      "description": "Step into the enchanting world of 'Mystical Moss Mastery,' a delightful class designed to reconnect you with nature and tickle your creative bones. Held amidst the lush landscapes of the Peak District, this course is led by the ever-charming Fern Greenleaf, a renowned moss artisanal expert and lover of all things verdant. Throughout this whimsical workshop, you will embark on a journey of discovery with the humble yet extraordinary moss. Participants will begin by exploring the local terrain to identify and collect various moss species, guided by Fern's expert tips on ecological conservation and the ethical gathering of natural materials. Back at the crafting tent, equipped with artisan glass terrariums, you will learn the art of moss cultivation. Dive into the world of moss design as you sculpt your own miniature fairy landscapes or create serene, Zen-inspired decorations for your living space. Fern will also introduce you to the calming benefits of moss appreciation, sharing techniques on how to incorporate moss into daily mindfulness practices, perfect for a quick, peaceful retreat from the hustle and bustle of life. 'Mystical Moss Mastery' promises to leave you not only with new creative skills and a unique homemade creation, but with a rejuvenated spirit and a deeper appreciation for nature\u2019s green wonders.",
+      "filename": "3822a282002b4a77adb7db5063cdaaa6_class_088_mystical_moss_mastery.pdf",
+      "id": 88,
+      "instructor": "Fern Greenleaf",
+      "learning_objectives": [
+        "Identify and differentiate between various types of moss common to the Peak District.",
+        "Cultivate and care for moss in artistic terrariums.",
+        "Design and create whimsical moss sculptures for home decoration.",
+        "Understand the ecological role of moss in local ecosystems.",
+        "Incorporate moss into daily mindfulness and relaxation practices."
+      ],
+      "location": "Peak District",
+      "pdf_url": null,
+      "provided_materials": [
+        "Handcrafted glass terrarium",
+        "Selection of local moss species",
+        "Miniature tools for moss sculpting",
+        "Organic plant-safe dyes",
+        "Illustrated moss guidebook"
+      ],
+      "skills": [
+        "Botany Craftsmanship Ecological Understanding Mindfulness",
+        "Artistic Expression"
+      ],
+      "title": "Mystical Moss Mastery",
+      "updated_at": "Wed, 25 Feb 2026 21:17:45 GMT"
+    },
+    {
+      "_distance": 0.7791299,
+      "class_id": "CLASS_088",
+      "cost": "\u00a345.00",
+      "course_type": "Nature Crafts",
+      "created_at": "Wed, 25 Feb 2026 21:17:45 GMT",
+      "description": "Step into the enchanting world of 'Mystical Moss Mastery,' a delightful class designed to reconnect you with nature and tickle your creative bones. Held amidst the lush landscapes of the Peak District, this course is led by the ever-charming Fern Greenleaf, a renowned moss artisanal expert and lover of all things verdant. Throughout this whimsical workshop, you will embark on a journey of discovery with the humble yet extraordinary moss. Participants will begin by exploring the local terrain to identify and collect various moss species, guided by Fern's expert tips on ecological conservation and the ethical gathering of natural materials. Back at the crafting tent, equipped with artisan glass terrariums, you will learn the art of moss cultivation. Dive into the world of moss design as you sculpt your own miniature fairy landscapes or create serene, Zen-inspired decorations for your living space. Fern will also introduce you to the calming benefits of moss appreciation, sharing techniques on how to incorporate moss into daily mindfulness practices, perfect for a quick, peaceful retreat from the hustle and bustle of life. 'Mystical Moss Mastery' promises to leave you not only with new creative skills and a unique homemade creation, but with a rejuvenated spirit and a deeper appreciation for nature\u2019s green wonders.",
+      "filename": "3822a282002b4a77adb7db5063cdaaa6_class_088_mystical_moss_mastery.pdf",
+      "id": 88,
+      "instructor": "Fern Greenleaf",
+      "learning_objectives": [
+        "Identify and differentiate between various types of moss common to the Peak District.",
+        "Cultivate and care for moss in artistic terrariums.",
+        "Design and create whimsical moss sculptures for home decoration.",
+        "Understand the ecological role of moss in local ecosystems.",
+        "Incorporate moss into daily mindfulness and relaxation practices."
+      ],
+      "location": "Peak District",
+      "pdf_url": null,
+      "provided_materials": [
+        "Handcrafted glass terrarium",
+        "Selection of local moss species",
+        "Miniature tools for moss sculpting",
+        "Organic plant-safe dyes",
+        "Illustrated moss guidebook"
+      ],
+      "skills": [
+        "Botany Craftsmanship Ecological Understanding Mindfulness",
+        "Artistic Expression"
+      ],
+      "title": "Mystical Moss Mastery",
+      "updated_at": "Wed, 25 Feb 2026 21:17:45 GMT"
+    }
+  ],
+  "total_pages": 1
+}

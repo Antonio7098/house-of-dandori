@@ -192,6 +192,20 @@ def build_graph_relationships(triples: List[dict]) -> List[Dict[str, Any]]:
             suffix=object_meta.get("term") or obj,
         )
 
+        rel_props = {
+            "predicate": predicate,
+            "text": triple.get("text"),
+        }
+
+        for key in ("course_id", "class_id", "title"):
+            value = subject_meta.get(key)
+            if value is not None:
+                rel_props[key] = value
+
+        object_term = object_meta.get("term")
+        if object_term is not None:
+            rel_props["object_term"] = object_term
+
         relationships.append(
             {
                 "subject_id": subject_uid,
@@ -199,11 +213,7 @@ def build_graph_relationships(triples: List[dict]) -> List[Dict[str, Any]]:
                 "object_id": object_uid,
                 "object_props": object_props,
                 "rel_id": triple["id"],
-                "rel_props": {
-                    "predicate": predicate,
-                    "text": triple.get("text"),
-                    "metadata": metadata,
-                },
+                "rel_props": rel_props,
             }
         )
 

@@ -1,0 +1,95 @@
+{
+  "entity": "Cornish Pasty Poetry & Patisserie",
+  "found": true,
+  "neighbors": [
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "writ",
+      "neighbor_uid": "writ_writ",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept writ"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "material",
+      "neighbor_uid": "material_material",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept material"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "embark",
+      "neighbor_uid": "embark_embark",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept embark"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "creation",
+      "neighbor_uid": "creation_creation",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept creation"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "whimsical",
+      "neighbor_uid": "whimsical_whimsical",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept whimsical"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "traditional",
+      "neighbor_uid": "traditional_traditional",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept traditional"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "discover",
+      "neighbor_uid": "discover_discover",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept discover"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "cultural",
+      "neighbor_uid": "cultural_cultural",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept cultural"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "Creative Writing",
+      "neighbor_uid": "creative_writing_creative_writing",
+      "predicate": "develops_proficiency_in",
+      "text": "Cornish Pasty Poetry & Patisserie develops proficiency in Creative Writing"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "creat",
+      "neighbor_uid": "creat_creat",
+      "predicate": "teaches_concept",
+      "text": "Cornish Pasty Poetry & Patisserie teaches concept creat"
+    }
+  ],
+  "properties": {
+    "class_id": "CLASS_002",
+    "course_id": 2,
+    "entity_type": "course",
+    "name": "Cornish Pasty Poetry & Patisserie",
+    "title": "Cornish Pasty Poetry & Patisserie",
+    "uid": "cornish_pasty_poetry_patisserie_2"
+  },
+  "uid": "cornish_pasty_poetry_patisserie_2"
+}

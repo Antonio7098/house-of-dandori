@@ -1,0 +1,124 @@
+{
+  "chunks": {
+    "count": 3,
+    "distances": [
+      0.7125182,
+      0.7019613,
+      0.68186986
+    ],
+    "documents": [
+      "Course Title: Magical Moss Mosaics. Course Type: Nature Crafts. Instructor: Professor Lichenbottom. Location: Edinburgh. Skills: Botanical Artistry Sustainable Crafting Ecological Education, Design Principles Nature Appreciation. Learning Objectives: Identify and harvest different species of moss suited for art projects, Understand the ecological benefits of moss and its role in the ecosystem, Create a personalized mosaic using moss as a primary material, Maintain and care for moss art to ensure longevity, Incorporate natural elements and design principles into artistic creations. Provided Materials: Assorted moss varieties, Decorative stones and pebbles, Eco-friendly adhesive, Reclaimed wooden frames, Sketching pencils and paper. Description: Step into the enchanting world of 'Magical Moss Mosaics' with the esteemed Professor Lichenbottom, where the serene beauty of nature meets creative expression. Hosted in the verdant heart of Edinburgh, this class is a delightfully whimsical foray into the art of crafting with moss. Students will embark on a botanical journey to learn about various moss species, understanding their unique textures and hues, and developing the skills to harvest them sustainably. Under Professor Lichenbottom's expert guidance, participants will create their own moss mosaics, transforming simple materials into vibrant, living artwork. The class will begin with a foraging session in a nearby woodland, where students will collect moss samples while learning about their ecological significance. Back in the cozy art studio, they will sketch their designs, incorporating elements of natural symmetry and balance. With the aid of eco-friendly adhesives and a selection of natural embellishments like pebbles and driftwood, participants will bring their mossy masterpieces to life, constructing intricately textured artworks that are as sustainable as they are beautiful. Throughout the session, students will also discover best practices for maintaining their c\u2026",
+      "Course Title: Mystical Moss Mosaics. Course Type: Nature Crafts. Instructor: Professor Mossbottom. Location: Scottish Highlands. Skills: Nature Art Botanical Knowledge Eco-Friendly Crafts, Design Skills Preservation Techniques. Learning Objectives: Identify and collect different types of moss safely., Create intricate mosaics using natural materials., Understand the ecological importance of moss in local ecosystems., Develop skills in designing and executing nature-inspired art., Learn to preserve moss mosaics for indoor display.. Provided Materials: Moss identification booklet, Trowel, Canvas boards, Natural adhesive, Artistic design templates. Description: Venture into the enchanting wilderness of the Scottish Highlands with Professor Mossbottom, your esteemed guide and instructor in the art of Mystical Moss Mosaics. In this delightfully whimsical class, participants will embark on a journey to discover the beauty of moss and its potential as a medium for artistic expression. Held under the canopy of the ancient Caledonian Forest, the workshop begins with an introduction to different moss species, where students will learn to identify and gather various moss types responsibly and sustainably. Professor Mossbottom, with his charming anecdotes and deep botanical knowledge, will ensure all participants gain a respect and understanding of the ecological role of these small yet mighty plants. Once your mossy treasures are collected, you'll return to the workshop base \u2014a cozy, rustic lodge equipped with all necessary crafting stations. Here, you'll learn to arrange your moss into intricate and beautiful mosaics on canvas, guided by the professor\u2019s expert eye for detail and design. From Highland landscapes to abstract nature motifs, the possibilities are endless. By the end of the session, students will have created their own unique moss mosaic to take home. Skills in preserving these verdant artworks will also be covered, ensuring your piece of the Highlands remains lus\u2026",
+      "Course Title: Mystical Moss Mastery. Course Type: Nature Crafts. Instructor: Fern Greenleaf. Location: Peak District. Skills: Botany Craftsmanship Ecological Understanding Mindfulness, Artistic Expression. Learning Objectives: Identify and differentiate between various types of moss common to the Peak District., Cultivate and care for moss in artistic terrariums., Design and create whimsical moss sculptures for home decoration., Understand the ecological role of moss in local ecosystems., Incorporate moss into daily mindfulness and relaxation practices.. Provided Materials: Handcrafted glass terrarium, Selection of local moss species, Miniature tools for moss sculpting, Organic plant-safe dyes, Illustrated moss guidebook. Description: Step into the enchanting world of 'Mystical Moss Mastery,' a delightful class designed to reconnect you with nature and tickle your creative bones. Held amidst the lush landscapes of the Peak District, this course is led by the ever-charming Fern Greenleaf, a renowned moss artisanal expert and lover of all things verdant. Throughout this whimsical workshop, you will embark on a journey of discovery with the humble yet extraordinary moss. Participants will begin by exploring the local terrain to identify and collect various moss species, guided by Fern's expert tips on ecological conservation and the ethical gathering of natural materials. Back at the crafting tent, equipped with artisan glass terrariums, you will learn the art of moss cultivation. Dive into the world of moss design as you sculpt your own miniature fairy landscapes or create serene, Zen-inspired decorations for your living space. Fern will also introduce you to the calming benefits of moss appreciation, sharing techniques on how to incorporate moss into daily mindfulness practices, perfect for a quick, peaceful retreat from the hustle and bustle of life. 'Mystical Moss Mastery' promises to leave you not only with new creative skills and a unique homemade creation, but w\u2026"
+    ],
+    "ids": [
+      "4e93265c-2e56-5e0a-91c3-6924c4e5d3b6",
+      "50a1d38e-2dfe-5c31-b391-87118627fa8f",
+      "39e71615-51e1-545e-9297-bbdcca0d6762"
+    ],
+    "metadatas": [
+      {
+        "chunk_id": "chunk::209",
+        "class_id": "CLASS_209",
+        "cost": "\u00a385.00",
+        "course_id": 209,
+        "course_type": "Nature Crafts",
+        "instructor": "Professor Lichenbottom",
+        "location": "Edinburgh",
+        "title": "Magical Moss Mosaics"
+      },
+      {
+        "chunk_id": "chunk::3",
+        "class_id": "CLASS_003",
+        "cost": "\u00a385.00",
+        "course_id": 3,
+        "course_type": "Nature Crafts",
+        "instructor": "Professor Mossbottom",
+        "location": "Scottish Highlands",
+        "title": "Mystical Moss Mosaics"
+      },
+      {
+        "chunk_id": "chunk::88",
+        "class_id": "CLASS_088",
+        "cost": "\u00a345.00",
+        "course_id": 88,
+        "course_type": "Nature Crafts",
+        "instructor": "Fern Greenleaf",
+        "location": "Peak District",
+        "title": "Mystical Moss Mastery"
+      }
+    ]
+  },
+  "kg": {
+    "count": 5,
+    "distances": [
+      0.75703263,
+      0.7483908,
+      0.7483384,
+      0.7475071,
+      0.74685144
+    ],
+    "documents": [
+      "Mystical Moss Mastery teaches concept artistic",
+      "Magical Moss Mosaics is of type Nature Crafts",
+      "Mystical Moss Mosaics is of type Nature Crafts",
+      "Magical Moss Mosaics teaches concept art",
+      "Mystical Moss Mosaics teaches concept nature"
+    ],
+    "ids": [
+      "f0c5f94c-1d2f-5eb1-aeb2-1e45b6c6581d",
+      "cded2c49-51a4-5ac0-82a7-2918606d89ba",
+      "4f494679-260c-59e9-a30e-38c6c0ca06d7",
+      "069c7bc9-232e-5bb3-a71a-809792232b35",
+      "d05d3c2c-f756-58e8-b58f-18ce7fda0b03"
+    ],
+    "metadatas": [
+      {
+        "chunk_id": "kg::mystical_moss_mastery::teaches_concept::artistic",
+        "class_id": "CLASS_088",
+        "course_id": 88,
+        "object": "artistic",
+        "predicate": "teaches_concept",
+        "subject": "Mystical Moss Mastery",
+        "title": "Mystical Moss Mastery"
+      },
+      {
+        "chunk_id": "kg::magical_moss_mosaics::is_of_type::nature_crafts",
+        "class_id": "CLASS_209",
+        "course_id": 209,
+        "object": "Nature Crafts",
+        "predicate": "is_of_type",
+        "subject": "Magical Moss Mosaics",
+        "title": "Magical Moss Mosaics"
+      },
+      {
+        "chunk_id": "kg::mystical_moss_mosaics::is_of_type::nature_crafts",
+        "class_id": "CLASS_003",
+        "course_id": 3,
+        "object": "Nature Crafts",
+        "predicate": "is_of_type",
+        "subject": "Mystical Moss Mosaics",
+        "title": "Mystical Moss Mosaics"
+      },
+      {
+        "chunk_id": "kg::magical_moss_mosaics::teaches_concept::art",
+        "class_id": "CLASS_209",
+        "course_id": 209,
+        "object": "art",
+        "predicate": "teaches_concept",
+        "subject": "Magical Moss Mosaics",
+        "title": "Magical Moss Mosaics"
+      },
+      {
+        "chunk_id": "kg::mystical_moss_mosaics::teaches_concept::nature",
+        "class_id": "CLASS_003",
+        "course_id": 3,
+        "object": "nature",
+        "predicate": "teaches_concept",
+        "subject": "Mystical Moss Mosaics",
+        "title": "Mystical Moss Mosaics"
+      }
+    ]
+  },
+  "query": "moss and botanical art"
+}

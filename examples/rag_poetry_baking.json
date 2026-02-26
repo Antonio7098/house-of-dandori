@@ -1,0 +1,41 @@
+{
+  "count": 3,
+  "limit": 3,
+  "page": 1,
+  "results": [
+    {
+      "_distance": 0.8274798,
+      "class_id": "CLASS_002",
+      "cost": "\u00a385.00",
+      "course_type": "Traditional Skills",
+      "created_at": "Wed, 25 Feb 2026 21:15:58 GMT",
+      "description": "Welcome to the Cornish Pasty Poetry & Patisserie class, where culinary arts meet lyrical expression in the heart of Cornwall. Under the guidance of Chef Rhubarb Mince, a master pastry chef with a flair for verse, you'll embark on a delightful journey of crafting perfect Cornish pasties while spicing them up with poetic charm. Students will start by getting hands-on with the basics of pasty dough making, learning the secrets to achieving flaky perfection. As you knead and fold, Chef Mince will regale you with the rich history of the Cornish pasty, explaining its role in local culture and its fascinating evolution. Once the dough is ready, you'll dive into creating whimsical fillings, experimenting with traditional and imaginative ingredients sourced locally. But the fun doesn't stop there! You'll be encouraged to weave poetry into your patisserie process, penning verses inspired by your culinary creations. By the end of the class, participants will have mastered the art of both pasty-making and poetry, culminating in a tasting session where your culinary and literary masterpieces are shared and savored. Whether you're a budding chef or a poetic soul, this class promises a unique blend of tradition, creativity, and fun.",
+      "filename": "9af5045ae237457f8ac112969296abb5_class_002_Cornish_Pasty_Poetry__Patisserie.pdf",
+      "id": 2,
+      "instructor": "Chef Rhubarb Mince",
+      "learning_objectives": [
+        "Master the art of crafting the perfect Cornish pasty",
+        "Learn to create deliciously whimsical pasty fillings",
+        "Discover how to weave poetry into pastry making",
+        "Understand the historical significance of pasty making",
+        "Develop culinary creativity and presentation skills"
+      ],
+      "location": "Cornwall",
+      "pdf_url": null,
+      "provided_materials": [
+        "Organic flour and butter",
+        "Locally sourced ingredients for pasty fillings",
+        "Poetry writing materials",
+        "Aprons with Cornish patterns",
+        "Recipe and poetry booklet"
+      ],
+      "skills": [
+        "Cooking Creative Writing Cultural History Presentation",
+        "Creative Thinking"
+      ],
+      "title": "Cornish Pasty Poetry & Patisserie",
+      "updated_at": "Wed, 25 Feb 2026 21:15:58 GMT"
+    }
+  ],
+  "total_pages": 1
+}

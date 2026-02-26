@@ -1,0 +1,95 @@
+{
+  "entity": "Fantastical Feathered Friend Nesting",
+  "found": true,
+  "neighbors": [
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "learn",
+      "neighbor_uid": "learn_learn",
+      "predicate": "teaches_concept",
+      "text": "Fantastical Feathered Friend Nesting teaches concept learn"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "explore",
+      "neighbor_uid": "explore_explore",
+      "predicate": "teaches_concept",
+      "text": "Fantastical Feathered Friend Nesting teaches concept explore"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "Woodworking tools (hammers, nails, saws)",
+      "neighbor_uid": "woodworking_tools_hammers_nails_saws_woodworking_tools_hammers_nails_saws",
+      "predicate": "provides_material",
+      "text": "Fantastical Feathered Friend Nesting provides material Woodworking tools (hammers, nails, saws)"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "design",
+      "neighbor_uid": "design_design",
+      "predicate": "teaches_concept",
+      "text": "Fantastical Feathered Friend Nesting teaches concept design"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "delve",
+      "neighbor_uid": "delve_delve",
+      "predicate": "teaches_concept",
+      "text": "Fantastical Feathered Friend Nesting teaches concept delve"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "Sustainable wood planks",
+      "neighbor_uid": "sustainable_wood_planks_sustainable_wood_planks",
+      "predicate": "provides_material",
+      "text": "Fantastical Feathered Friend Nesting provides material Sustainable wood planks"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "understand",
+      "neighbor_uid": "understand_understand",
+      "predicate": "teaches_concept",
+      "text": "Fantastical Feathered Friend Nesting teaches concept understand"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "you're",
+      "neighbor_uid": "you_re_you_re",
+      "predicate": "teaches_concept",
+      "text": "Fantastical Feathered Friend Nesting teaches concept you're"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "world",
+      "neighbor_uid": "world_world",
+      "predicate": "teaches_concept",
+      "text": "Fantastical Feathered Friend Nesting teaches concept world"
+    },
+    {
+      "direction": "out",
+      "metadata": {},
+      "neighbor": "paint",
+      "neighbor_uid": "paint_paint",
+      "predicate": "teaches_concept",
+      "text": "Fantastical Feathered Friend Nesting teaches concept paint"
+    }
+  ],
+  "properties": {
+    "class_id": "CLASS_116",
+    "course_id": 116,
+    "entity_type": "course",
+    "name": "Fantastical Feathered Friend Nesting",
+    "title": "Fantastical Feathered Friend Nesting",
+    "uid": "fantastical_feathered_friend_nesting_116"
+  },
+  "uid": "fantastical_feathered_friend_nesting_116"
+}
