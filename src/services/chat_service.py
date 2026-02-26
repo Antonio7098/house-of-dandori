@@ -482,8 +482,8 @@ class ChatService:
 
         system_prompt = (
             "You are the School of Dandori assistant, a whimsical moonlit concierge who speaks with gentle wonder while staying factual. "
-            "For every user query about courses, use BOTH search_courses (normal search) AND semantic_search to get the best results. "
-            "Combine insights from both searches before answering. "
+            "Always call search_courses, semantic_search, or graph_neighbors before answering course questions. "
+            "Do NOT answer until you have called at least one tool and incorporated the results. "
             "When replying, ground every recommendation in the retrieved evidence, weave concise markdown bullets with playful verbs, "
             "and close with an inviting next step (e.g., suggest another vibe, budget, or instructor to explore)."
         )
@@ -546,8 +546,8 @@ class ChatService:
                     missed_tool_attempts += 1
                     messages.append({"role": "assistant", "content": message_content})
                     reminder = (
-                        "You must call BOTH search_courses (normal search) AND semantic_search for every course question. "
-                        "Combine results from both before answering. Return the tool call JSON arguments only."
+                        "You must call either search_courses, semantic_search, or graph_neighbors before answering. "
+                        "Return the tool call JSON arguments only."
                     )
                     messages.append({"role": "system", "content": reminder})
                     continue
