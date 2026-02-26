@@ -1,4 +1,5 @@
 """Base RAG service utilities shared across vector-based services."""
+
 from __future__ import annotations
 
 import os
@@ -26,28 +27,43 @@ class VectorStoreFactory:
     _providers: Optional[Dict[str, type]] = None
 
     @classmethod
+    def _get_provider(cls, provider: str) -> type:
+        if cls._providers is None:
+            cls._providers = {}
+
+        if provider in cls._providers:
+            return cls._providers[provider]
+
+        if provider == "chroma":
+            from src.core.vector_store.chroma import ChromaDBProvider
+
+            cls._providers["chroma"] = ChromaDBProvider
+        elif provider == "qdrant":
+            from src.core.vector_store.qdrant import QdrantVectorStoreProvider
+
+            cls._providers["qdrant"] = QdrantVectorStoreProvider
+        elif provider == "vertexai":
+            raise ValueError(
+                "Provider 'vertexai' has been disabled. Use 'qdrant' or 'chroma'."
+            )
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+
+        return cls._providers[provider]
+
+    @classmethod
     def _get_providers(cls) -> Dict[str, type]:
         if cls._providers is None:
-            from src.core.vector_store.chroma import ChromaDBProvider
-            from src.core.vector_store.qdrant import QdrantVectorStoreProvider
-            from src.core.vector_store.vertexai import VertexAIVectorSearchProvider
-
-            cls._providers = {
-                "chroma": ChromaDBProvider,
-                "qdrant": QdrantVectorStoreProvider,
-                "vertexai": VertexAIVectorSearchProvider,
-            }
+            cls._providers = {}
+            default_provider = os.environ.get("VECTOR_STORE_PROVIDER", "qdrant")
+            cls._providers[default_provider] = cls._get_provider(default_provider)
         return cls._providers
 
     @classmethod
     def create(cls, provider: Optional[str] = None, **kwargs) -> VectorStoreProvider:
-        provider = provider or os.environ.get("VECTOR_STORE_PROVIDER", "chroma")
-        providers = cls._get_providers()
-        if provider not in providers:
-            raise ValueError(
-                f"Unknown provider: {provider}. Available: {list(providers.keys())}"
-            )
-        return providers[provider](**kwargs)
+        provider = provider or os.environ.get("VECTOR_STORE_PROVIDER", "qdrant")
+        provider_class = cls._get_provider(provider)
+        return provider_class(**kwargs)
 
     @classmethod
     def register_provider(cls, name: str, provider_class: type) -> None:
@@ -78,7 +94,7 @@ class BaseRAGService(ABC):
         **provider_kwargs,
     ):
         self.provider_name = provider or os.environ.get(
-            "VECTOR_STORE_PROVIDER", "chroma"
+            "VECTOR_STORE_PROVIDER", "qdrant"
         )
         self._provider_kwargs = provider_kwargs
         self.batch_size = batch_size or self.DEFAULT_BATCH_SIZE
@@ -90,10 +106,7 @@ class BaseRAGService(ABC):
         **extra_kwargs,
     ) -> VectorStoreProvider:
         kwargs = {**self._provider_kwargs, **extra_kwargs}
-        if (
-            "persist_dir" not in kwargs
-            and self.provider_name == "chroma"
-        ):
+        if "persist_dir" not in kwargs and self.provider_name == "chroma":
             kwargs["persist_dir"] = ensure_chroma_persist_dir()
         if collection_name:
             kwargs["collection_name"] = collection_name
