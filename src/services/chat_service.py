@@ -4,7 +4,9 @@ import json
 import os
 import re
 from datetime import date, datetime, time
+from time import monotonic
 from typing import Any, Dict, Generator, List, Optional, Tuple
+import requests
 
 from src.core.utils import parse_json_fields
 from src.models.database import get_db_connection
@@ -34,6 +36,7 @@ class ChatService:
     def __init__(self):
         self._rag_service = None
         self._graph_rag_service = None
+        self._semantic_cache: Dict[Tuple[str, int, Optional[str]], Tuple[float, Dict[str, Any]]] = {}
 
     def _json_safe(self, value: Any) -> Any:
         if isinstance(value, (datetime, date, time)):
@@ -146,6 +149,13 @@ class ChatService:
         self, query: str, limit: int = 5, provider: Optional[str] = None
     ) -> Dict[str, Any]:
         try:
+            normalized_limit = max(1, min(int(limit), 20))
+            cache_key = (query.strip().lower(), normalized_limit, provider)
+            cached = self._semantic_cache.get(cache_key)
+            now = monotonic()
+            if cached and now - cached[0] < 30:
+                return cached[1]
+
             if self._rag_service is None or (
                 provider
                 and provider != getattr(self._rag_service, "provider_name", None)
@@ -154,9 +164,8 @@ class ChatService:
 
                 self._rag_service = get_rag_service(provider)
 
-            results = self._rag_service.search(
-                query, n_results=max(1, min(int(limit), 20))
-            )
+            results = self._rag_service.search(query, n_results=normalized_limit)
+            self._semantic_cache[cache_key] = (now, results)
             return results
         except Exception as exc:
             return {"error": f"semantic_search unavailable: {exc}"}
@@ -186,15 +195,6 @@ class ChatService:
                     snippets.append(
                         "SQL | "
                         + f"{course.get('title') or 'Course'} — {course.get('course_type') or 'Type'} in {course.get('location') or 'Unknown'}"
-                    )
-            except Exception:
-                pass
-            try:
-                semantic = self._semantic_search(query, limit=3)
-                for meta in (semantic.get("metadatas") or [])[:3]:
-                    snippets.append(
-                        "RAG | "
-                        + f"{meta.get('title') or 'Document'} — {meta.get('course_type') or ''}"
                     )
             except Exception:
                 pass
@@ -446,43 +446,15 @@ class ChatService:
             )
             return
 
-        try:
-            from openai import OpenAI
-        except ModuleNotFoundError:
-            quick = self._search_courses(
-                query=user_message, filters=payload.get("filters") or {}, limit=5
-            )
-            ids = [
-                c.get("id") for c in quick.get("courses", []) if c.get("id") is not None
-            ]
-            text = (
-                "The OpenAI SDK is not installed; using local search only. "
-                + " ".join([f"display({cid})" for cid in ids])
-            )
-            yield "text_delta", {"delta": text}
-            artifacts = self._display_artifacts(text)
-            yield (
-                "message_end",
-                {
-                    "message": text,
-                    "artifacts": artifacts,
-                    "mode": mode,
-                    "model": None,
-                },
-            )
-            return
-
-        client = OpenAI(
-            api_key=api_key,
-            base_url=os.environ.get(
-                "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
-            ),
-        )
+        base_url = os.environ.get(
+            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+        ).rstrip("/")
+        chat_url = f"{base_url}/chat/completions"
+        timeout = int(os.environ.get("OPENROUTER_TIMEOUT_SECONDS", "60"))
 
         system_prompt = (
             "You are the School of Dandori assistant, a whimsical moonlit concierge who speaks with gentle wonder while staying factual. "
-            "For every user query about courses, ALWAYS call BOTH search_courses (normal search) AND semantic_search to get the best results. "
-            "Combine insights from both searches before answering. "
+            "For course questions, use search_courses and semantic_search when needed, and combine relevant results before answering. "
             "Do NOT answer until you have called at least one tool and incorporated the results. "
             "When replying, ground every recommendation in the retrieved evidence, weave concise markdown bullets with playful verbs, "
             "and close with an inviting next step (e.g., suggest another vibe, budget, or instructor to explore)."
@@ -510,54 +482,48 @@ class ChatService:
         tools = self._tool_schemas(enable_graph_neighbors=(mode == "graphrag"))
         missed_tool_attempts = 0
         has_called_tool = False
-        tool_context_messages: List[str] = []
 
         for _ in range(max_rounds):
-            completion = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                temperature=0.2,
-            )
-            message = completion.choices[0].message
-            tool_calls = message.tool_calls or []
+            payload_body = {
+                "model": model,
+                "messages": messages,
+                "tools": tools,
+                "tool_choice": "auto",
+                "temperature": 0.2,
+            }
+            try:
+                completion = requests.post(
+                    chat_url,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload_body,
+                    timeout=timeout,
+                )
+                completion.raise_for_status()
+                completion_data = completion.json()
+                message = (
+                    ((completion_data.get("choices") or [{}])[0].get("message"))
+                    or {}
+                )
+            except Exception as exc:
+                yield "error", {"message": f"Chat completion failed: {exc}"}
+                return
+
+            tool_calls = message.get("tool_calls") or []
+            message_content = message.get("content") or ""
 
             if not tool_calls:
-                if not has_called_tool and missed_tool_attempts < 2:
+                if not has_called_tool and missed_tool_attempts < 1:
                     missed_tool_attempts += 1
-                    messages.append(
-                        {"role": "assistant", "content": message.content or ""}
-                    )
+                    messages.append({"role": "assistant", "content": message_content})
                     reminder = (
-                        "You must call BOTH search_courses (normal search) AND semantic_search for every course question. "
-                        "Combine results from both before answering. Return the tool call JSON arguments only."
+                        "Use at least one relevant retrieval tool before answering. Return tool call JSON arguments only."
                     )
                     messages.append({"role": "system", "content": reminder})
                     continue
-                # Stream a final narrative pass so the UI receives incremental tokens.
-                messages.append({"role": "assistant", "content": message.content or ""})
-                for ctx in tool_context_messages:
-                    messages.append(
-                        {"role": "system", "content": "Tool context:\n" + ctx}
-                    )
-                stream = client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=0.2,
-                    stream=True,
-                    tools=tools,
-                    tool_choice="none",
-                )
-                final_text_parts: List[str] = []
-                for chunk in stream:
-                    delta = chunk.choices[0].delta
-                    text = delta.content if hasattr(delta, "content") else None
-                    if text:
-                        final_text_parts.append(text)
-                final_text = "".join(final_text_parts).strip() or (
-                    message.content or ""
-                )
+                final_text = message_content.strip()
                 output_safety = safety_service.check_output(final_text)
                 if not output_safety.safe:
                     safety_service.log_block(
@@ -579,9 +545,8 @@ class ChatService:
                     )
                     return
 
-                for text in final_text_parts:
-                    if text:
-                        yield "text_delta", {"delta": text}
+                if final_text:
+                    yield "text_delta", {"delta": final_text}
                 artifacts = self._display_artifacts(final_text)
                 safe_artifacts = self._json_safe(artifacts)
                 yield (
@@ -598,16 +563,17 @@ class ChatService:
             messages.append(
                 {
                     "role": "assistant",
-                    "content": message.content or "",
-                    "tool_calls": [tc.model_dump() for tc in tool_calls],
+                    "content": message_content,
+                    "tool_calls": tool_calls,
                 }
             )
 
             has_called_tool = True
 
             for tool_call in tool_calls:
-                name = tool_call.function.name
-                raw_args = tool_call.function.arguments or "{}"
+                function_payload = tool_call.get("function") or {}
+                name = function_payload.get("name") or ""
+                raw_args = function_payload.get("arguments") or "{}"
                 try:
                     args = json.loads(raw_args)
                 except Exception:
@@ -615,7 +581,7 @@ class ChatService:
                 yield (
                     "tool_call",
                     {
-                        "id": tool_call.id,
+                        "id": tool_call.get("id"),
                         "name": name,
                         "arguments": args,
                         "status": "running",
@@ -626,19 +592,10 @@ class ChatService:
                 except Exception as exc:
                     result = {"error": f"{name} failed: {exc}"}
                 safe_result = self._json_safe(result)
-                summary: Optional[str] = None
-                if name == "search_courses":
-                    summary = self._format_course_results(safe_result)
-                elif name == "semantic_search":
-                    summary = self._format_semantic_results(safe_result)
-                elif name == "graph_neighbors":
-                    summary = self._format_graph_results(safe_result)
-                if summary:
-                    tool_context_messages.append(summary)
                 yield (
                     "tool_result",
                     {
-                        "id": tool_call.id,
+                        "id": tool_call.get("id"),
                         "name": name,
                         "arguments": args,
                         "status": "completed"
@@ -650,7 +607,7 @@ class ChatService:
                 messages.append(
                     {
                         "role": "tool",
-                        "tool_call_id": tool_call.id,
+                        "tool_call_id": tool_call.get("id"),
                         "name": name,
                         "content": json.dumps(safe_result),
                     }
