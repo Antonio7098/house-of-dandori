@@ -1,7 +1,8 @@
-from src.services.base_rag_service import BaseRAGService, sanitize_metadata
-from src.services.chunk_builder import CourseChunkBuilder
 import os
 from typing import Optional
+
+from src.services.base_rag_service import BaseRAGService
+from src.services.chunk_builder import CourseChunkBuilder
 
 class RAGService(BaseRAGService):
     def __init__(self, provider: Optional[str] = None, **kwargs):
@@ -16,6 +17,21 @@ class RAGService(BaseRAGService):
         chunks = self.build_chunks(courses)
         if chunks:
             self._replace_collection(self.vector_store, chunks)
+
+    def upsert_course(self, course: dict | None) -> None:
+        if not course:
+            return
+        self.index_courses([course])
+
+    def delete_course(self, course: dict | None) -> None:
+        if not course:
+            return
+        chunks = self.build_chunks([course])
+        if not chunks:
+            return
+        ids = [chunk["id"] for chunk in chunks]
+        if ids:
+            self.vector_store.delete(ids)
 
     def search(self, query: str, n_results: int = 5) -> dict:
         results = self.vector_store.query(query_texts=[query], n_results=n_results)

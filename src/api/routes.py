@@ -3,7 +3,7 @@ import os
 import re
 import uuid
 import json
-from typing import Optional
+from typing import Literal, Optional
 
 import PyPDF2
 from flask import Blueprint, jsonify, request, send_file
@@ -24,6 +24,7 @@ from src.core.auth import require_auth
 logger = get_logger("routes")
 from src.core.utils import to_json, parse_json_fields
 from src.models.database import get_db_connection, extract_returning_id
+from src.api.search import get_rag
 from src.models.schemas import (
     CourseCreate,
     CourseUpdate,
@@ -34,6 +35,44 @@ from src.models.schemas import (
 )
 
 courses_bp = Blueprint("courses", __name__)
+
+VectorSyncAction = Literal["upsert", "delete"]
+
+
+def _fetch_course_by_id(course_id: int) -> dict | None:
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        use_postgres = bool(os.environ.get("DATABASE_URL"))
+        placeholder = "%s" if use_postgres else "?"
+        cursor.execute(f"SELECT * FROM courses WHERE id = {placeholder}", (course_id,))
+        row = cursor.fetchone()
+        return parse_json_fields(row) if row else None
+    except Exception as exc:
+        logger.warning(f"Failed to fetch course {course_id} for vector sync: {exc}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
+def _sync_vector_store(course: dict | None, action: VectorSyncAction) -> None:
+    if not course:
+        return
+    try:
+        rag = get_rag()
+    except Exception as exc:
+        logger.warning(f"Unable to initialize RAG service for vector sync: {exc}")
+        return
+
+    try:
+        if action == "upsert":
+            rag.upsert_course(course)
+        else:
+            rag.delete_course(course)
+    except Exception as exc:
+        logger.warning(f"Vector store sync failed ({action}) for course {course.get('id')}: {exc}")
 
 
 def allowed_file(filename):
@@ -320,6 +359,7 @@ def create_course():
             duration_ms=0,
             course_id=course_id,
         )
+        _sync_vector_store(_fetch_course_by_id(course_id), "upsert")
         return jsonify({"id": course_id, "message": "Course created"}), 201
     except Exception as e:
         api_logger.log_error(e, {"path": "/api/courses", "method": "POST"})
@@ -371,6 +411,7 @@ def update_course(course_id):
         )
         conn.commit()
         conn.close()
+        _sync_vector_store(_fetch_course_by_id(course_id), "upsert")
         api_logger.log_request(
             method="PUT",
             path=f"/api/courses/{course_id}",
@@ -395,17 +436,20 @@ def delete_course(course_id):
     cursor = conn.cursor()
 
     try:
-        cursor.execute(f"SELECT id FROM courses WHERE id = {placeholder}", (course_id,))
-        if not cursor.fetchone():
+        cursor.execute(f"SELECT * FROM courses WHERE id = {placeholder}", (course_id,))
+        course_row = cursor.fetchone()
+        if not course_row:
             conn.close()
             error_dict, status_code = handle_exception(
                 NotFoundError("Course", course_id)
             )
             return jsonify(error_dict), status_code
+        course = parse_json_fields(course_row)
 
         cursor.execute(f"DELETE FROM courses WHERE id = {placeholder}", (course_id,))
         conn.commit()
         conn.close()
+        _sync_vector_store(course, "delete")
         api_logger.log_request(
             method="DELETE",
             path=f"/api/courses/{course_id}",
@@ -515,6 +559,7 @@ def upload_pdf():
             duration_ms=0,
             course_id=course_id,
         )
+        _sync_vector_store(_fetch_course_by_id(course_id), "upsert")
         return jsonify(
             {"id": course_id, "message": "Course created", "data": course_data}
         ), 201
@@ -644,6 +689,7 @@ def upload_batch():
                     }
                 )
                 successful += 1
+                _sync_vector_store(_fetch_course_by_id(result["id"]), "upsert")
             else:
                 results.append(
                     {
