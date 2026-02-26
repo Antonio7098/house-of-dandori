@@ -32,14 +32,7 @@ def create_app():
             return request_origin
         return None
 
-    @app.before_request
-    def handle_preflight():
-        if request.method == "OPTIONS":
-            response = make_response("", 204)
-            return response
-
-    @app.after_request
-    def apply_cors(response):
+    def _apply_cors_headers(response):
         origin = request.headers.get("Origin")
         allowed_origin = _resolve_origin(origin)
         if allowed_origin:
@@ -53,6 +46,16 @@ def create_app():
             "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         )
         return response
+
+    @app.before_request
+    def _handle_preflight():
+        if request.method == "OPTIONS":
+            response = make_response("", 204)
+            return _apply_cors_headers(response)
+
+    @app.after_request
+    def _apply_cors(response):
+        return _apply_cors_headers(response)
 
     app.register_blueprint(courses_bp)
     app.register_blueprint(search_bp)
