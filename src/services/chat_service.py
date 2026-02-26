@@ -446,11 +446,38 @@ class ChatService:
             )
             return
 
-        base_url = os.environ.get(
-            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
-        ).rstrip("/")
-        chat_url = f"{base_url}/chat/completions"
-        timeout = int(os.environ.get("OPENROUTER_TIMEOUT_SECONDS", "60"))
+        try:
+            from openai import OpenAI
+        except ModuleNotFoundError:
+            quick = self._search_courses(
+                query=user_message, filters=payload.get("filters") or {}, limit=5
+            )
+            ids = [
+                c.get("id") for c in quick.get("courses", []) if c.get("id") is not None
+            ]
+            text = (
+                "The OpenAI SDK is not installed; using local search only. "
+                + " ".join([f"display({cid})" for cid in ids])
+            )
+            yield "text_delta", {"delta": text}
+            artifacts = self._display_artifacts(text)
+            yield (
+                "message_end",
+                {
+                    "message": text,
+                    "artifacts": artifacts,
+                    "mode": mode,
+                    "model": None,
+                },
+            )
+            return
+
+        client = OpenAI(
+            api_key=api_key,
+            base_url=os.environ.get(
+                "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+            ),
+        )
 
         system_prompt = (
             "You are the School of Dandori assistant, a whimsical moonlit concierge who speaks with gentle wonder while staying factual. "
@@ -477,6 +504,89 @@ class ChatService:
             if role in {"user", "assistant", "system"} and isinstance(content, str):
                 messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": user_message})
+
+        # Fast path: run retrieval once, then make a single streamed model call.
+        fast_chat_enabled = os.environ.get("CHAT_FAST_PATH", "true").lower() == "true"
+        if fast_chat_enabled:
+            retrieval_sections: List[str] = []
+            try:
+                sql_results = self._search_courses(
+                    query=user_message,
+                    filters=payload.get("filters") or {},
+                    limit=6,
+                )
+                retrieval_sections.append(self._format_course_results(sql_results))
+            except Exception:
+                pass
+            try:
+                semantic_results = self._semantic_search(query=user_message, limit=5)
+                retrieval_sections.append(self._format_semantic_results(semantic_results))
+            except Exception:
+                pass
+            if mode == "graphrag":
+                try:
+                    graph_results = self._graph_neighbors(value=user_message, limit=5)
+                    retrieval_sections.append(self._format_graph_results(graph_results))
+                except Exception:
+                    pass
+
+            if retrieval_sections:
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": "Retrieved context:\n\n" + "\n\n".join(retrieval_sections),
+                    }
+                )
+
+            stream = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.2,
+                stream=True,
+                tools=[],
+                tool_choice="none",
+            )
+
+            final_text_parts: List[str] = []
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                text = delta.content if hasattr(delta, "content") else None
+                if text:
+                    final_text_parts.append(text)
+                    yield "text_delta", {"delta": text}
+
+            final_text = "".join(final_text_parts).strip()
+            output_safety = safety_service.check_output(final_text)
+            if not output_safety.safe:
+                safety_service.log_block(
+                    stage="output", text=final_text, result=output_safety
+                )
+                block_message = (
+                    output_safety.message or "Model output blocked by safety filters."
+                )
+                yield "text_delta", {"delta": block_message}
+                yield (
+                    "message_end",
+                    {
+                        "message": block_message,
+                        "artifacts": [],
+                        "mode": mode,
+                        "model": model,
+                    },
+                )
+                return
+
+            artifacts = self._display_artifacts(final_text)
+            yield (
+                "message_end",
+                {
+                    "message": final_text,
+                    "artifacts": self._json_safe(artifacts),
+                    "mode": mode,
+                    "model": model,
+                },
+            )
+            return
 
         max_rounds = 5
         tools = self._tool_schemas(enable_graph_neighbors=(mode == "graphrag"))
