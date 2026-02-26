@@ -36,7 +36,9 @@ class ChatService:
     def __init__(self):
         self._rag_service = None
         self._graph_rag_service = None
-        self._semantic_cache: Dict[Tuple[str, int, Optional[str]], Tuple[float, Dict[str, Any]]] = {}
+        self._semantic_cache: Dict[
+            Tuple[str, int, Optional[str]], Tuple[float, Dict[str, Any]]
+        ] = {}
 
     def _json_safe(self, value: Any) -> Any:
         if isinstance(value, (datetime, date, time)):
@@ -480,9 +482,8 @@ class ChatService:
 
         system_prompt = (
             "You are the School of Dandori assistant, a whimsical moonlit concierge who speaks with gentle wonder while staying factual. "
-            "For every user query about courses, ALWAYS call BOTH search_courses (normal search) AND semantic_search to get the best results. "
+            "For every user query about courses, use BOTH search_courses (normal search) AND semantic_search to get the best results. "
             "Combine insights from both searches before answering. "
-            "Do NOT answer until you have called at least one tool and incorporated the results. "
             "When replying, ground every recommendation in the retrieved evidence, weave concise markdown bullets with playful verbs, "
             "and close with an inviting next step (e.g., suggest another vibe, budget, or instructor to explore)."
         )
@@ -531,9 +532,8 @@ class ChatService:
                 completion.raise_for_status()
                 completion_data = completion.json()
                 message = (
-                    ((completion_data.get("choices") or [{}])[0].get("message"))
-                    or {}
-                )
+                    (completion_data.get("choices") or [{}])[0].get("message")
+                ) or {}
             except Exception as exc:
                 yield "error", {"message": f"Chat completion failed: {exc}"}
                 return
