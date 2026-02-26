@@ -47,6 +47,29 @@ class DatabaseManager:
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    email TEXT,
+                    location TEXT,
+                    bio TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id SERIAL PRIMARY KEY,
+                    course_id INTEGER NOT NULL,
+                    user_id TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+                    review TEXT NOT NULL,
+                    author_name TEXT,
+                    author_email TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
         else:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS courses (
@@ -65,6 +88,29 @@ class DatabaseManager:
                     pdf_url TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    email TEXT,
+                    location TEXT,
+                    bio TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    course_id INTEGER NOT NULL,
+                    user_id TEXT NOT NULL,
+                    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+                    review TEXT NOT NULL,
+                    author_name TEXT,
+                    author_email TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
         self.conn.commit()

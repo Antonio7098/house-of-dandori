@@ -36,6 +36,28 @@ from src.models.schemas import (
 courses_bp = Blueprint("courses", __name__)
 
 
+def _get_profile_for_user(user_id: str | None) -> dict:
+    if not user_id:
+        return {}
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        use_postgres = bool(os.environ.get("DATABASE_URL"))
+        placeholder = "%s" if use_postgres else "?"
+        cursor.execute(
+            f"SELECT name, email FROM user_profiles WHERE user_id = {placeholder}",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return {}
+        if isinstance(row, dict):
+            return row
+        return {"name": row[0], "email": row[1] if len(row) > 1 else None}
+    finally:
+        conn.close()
+
+
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -676,3 +698,153 @@ def upload_batch():
             "results": results,
         }
     ), 200
+
+
+@courses_bp.route("/api/courses/<int:course_id>/reviews", methods=["POST"])
+@require_auth
+def add_review(course_id):
+    from flask import g
+
+    data = request.get_json(silent=True) or {}
+    rating = data.get("rating")
+    review_text = data.get("review", "").strip()
+
+    if not rating or not review_text:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Rating and review text are required")
+        )
+        return jsonify(error_dict), status_code
+
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        error_dict, status_code = handle_exception(
+            BadRequestError("Rating must be an integer between 1 and 5")
+        )
+        return jsonify(error_dict), status_code
+
+    user = getattr(g, "user", {})
+    user_id = user.get("sub") or user.get("id") or user.get("email")
+
+    if not user_id:
+        return jsonify({"error": "Unable to determine user"}), 400
+
+    profile = _get_profile_for_user(user_id)
+    author_name = (
+        profile.get("name")
+        or user.get("name")
+        or user.get("email")
+        or user_id
+    )
+    author_email = profile.get("email") or user.get("email")
+
+    use_postgres = bool(os.environ.get("DATABASE_URL"))
+    placeholder = "%s" if use_postgres else "?"
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT id FROM reviews WHERE course_id = {placeholder} AND user_id = {placeholder}",
+            (course_id, user_id),
+        )
+        existing = cursor.fetchone()
+
+        if existing:
+            review_id = existing["id"] if isinstance(existing, dict) else existing[0]
+            cursor.execute(
+                f"""UPDATE reviews
+                        SET rating = {placeholder}, review = {placeholder}, author_name = {placeholder}, author_email = {placeholder}
+                      WHERE id = {placeholder}""",
+                (rating, review_text, author_name, author_email, review_id),
+            )
+            conn.commit()
+            message = "Review updated"
+            status_code = 200
+        else:
+            if use_postgres:
+                cursor.execute(
+                    """INSERT INTO reviews (course_id, user_id, rating, review, author_name, author_email)
+                       VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
+                    (course_id, user_id, rating, review_text, author_name, author_email),
+                )
+                review_id = extract_returning_id(cursor.fetchone())
+            else:
+                cursor.execute(
+                    """INSERT INTO reviews (course_id, user_id, rating, review, author_name, author_email)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (course_id, user_id, rating, review_text, author_name, author_email),
+                )
+                review_id = cursor.lastrowid
+            conn.commit()
+            message = "Review added"
+            status_code = 201
+
+        api_logger.log_request(
+            method="POST",
+            path=f"/api/courses/{course_id}/reviews",
+            status_code=status_code,
+            duration_ms=0,
+            review_id=review_id,
+        )
+        return jsonify({"id": review_id, "message": message, "updated": message == "Review updated"}), status_code
+    except Exception as e:
+        api_logger.log_error(
+            e, {"path": f"/api/courses/{course_id}/reviews", "method": "POST"}
+        )
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
+    finally:
+        conn.close()
+
+
+@courses_bp.route("/api/courses/<int:course_id>/reviews", methods=["GET"])
+def get_reviews(course_id):
+    use_postgres = bool(os.environ.get("DATABASE_URL"))
+    placeholder = "%s" if use_postgres else "?"
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT id, course_id, user_id, rating, review, author_name, author_email, created_at
+                FROM reviews WHERE course_id = {placeholder}
+                ORDER BY created_at DESC""",
+            (course_id,),
+        )
+        rows = cursor.fetchall()
+        reviews = []
+        for row in rows:
+            if isinstance(row, dict):
+                r = dict(row)
+                r["user_name"] = r.get("author_name") or r.get("author_email") or r.get("user_id")
+                if r.get("created_at") and hasattr(r["created_at"], "isoformat"):
+                    r["created_at"] = r["created_at"].isoformat()
+                reviews.append(r)
+            else:
+                reviews.append(
+                    {
+                        "id": row[0],
+                        "course_id": row[1],
+                        "user_id": row[2],
+                        "rating": row[3],
+                        "review": row[4],
+                        "author_name": row[5],
+                        "author_email": row[6],
+                        "user_name": row[5] or row[6] or row[2],
+                        "created_at": str(row[7]) if row[7] else None,
+                    }
+                )
+
+        api_logger.log_request(
+            method="GET",
+            path=f"/api/courses/{course_id}/reviews",
+            status_code=200,
+            duration_ms=0,
+            count=len(reviews),
+        )
+        return jsonify({"reviews": reviews, "count": len(reviews)})
+    except Exception as e:
+        api_logger.log_error(
+            e, {"path": f"/api/courses/{course_id}/reviews", "method": "GET"}
+        )
+        error_dict, status_code = handle_exception(e)
+        return jsonify(error_dict), status_code
+    finally:
+        conn.close()

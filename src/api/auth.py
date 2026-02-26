@@ -12,9 +12,79 @@ from src.core.config import (
 )
 from src.core.errors import AuthenticationError, BadRequestError, handle_exception
 from src.core.logging import api_logger
+from src.models.database import get_db_connection
 
 auth_bp = Blueprint("auth", __name__)
-USER_PROFILE_STORE: Dict[str, Dict[str, Any]] = {}
+
+
+def _get_profile_from_db(user_id: str) -> Dict[str, Any]:
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        use_postgres = bool(os.environ.get("DATABASE_URL"))
+        placeholder = "%s" if use_postgres else "?"
+        cursor.execute(
+            f"SELECT name, email, location, bio FROM user_profiles WHERE user_id = {placeholder}",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if row:
+            if isinstance(row, dict):
+                return {k: v for k, v in row.items() if v is not None}
+            return {
+                k: v
+                for k, v in zip(["name", "email", "location", "bio"], row)
+                if v is not None
+            }
+        return {}
+    finally:
+        conn.close()
+
+
+def _upsert_profile_in_db(user_id: str, profile: Dict[str, Any]) -> None:
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        use_postgres = bool(os.environ.get("DATABASE_URL"))
+        if use_postgres:
+            cursor.execute(
+                """INSERT INTO user_profiles (user_id, name, email, location, bio, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, NOW())
+                   ON CONFLICT (user_id) DO UPDATE SET
+                       name = EXCLUDED.name,
+                       email = EXCLUDED.email,
+                       location = EXCLUDED.location,
+                       bio = EXCLUDED.bio,
+                       updated_at = NOW()""",
+                (
+                    user_id,
+                    profile.get("name"),
+                    profile.get("email"),
+                    profile.get("location"),
+                    profile.get("bio"),
+                ),
+            )
+        else:
+            cursor.execute(
+                """INSERT INTO user_profiles (user_id, name, email, location, bio, updated_at)
+                   VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                   ON CONFLICT (user_id) DO UPDATE SET
+                       name = excluded.name,
+                       email = excluded.email,
+                       location = excluded.location,
+                       bio = excluded.bio,
+                       updated_at = CURRENT_TIMESTAMP""",
+                (
+                    user_id,
+                    profile.get("name"),
+                    profile.get("email"),
+                    profile.get("location"),
+                    profile.get("bio"),
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _resolve_user_identifier(user: Dict[str, Any]) -> str | None:
@@ -114,7 +184,7 @@ def get_profile():
 
     if auth_service.dev_bypass:
         base_user = {"email": "dev@localhost", "id": "dev_user"}
-        profile = USER_PROFILE_STORE.get("dev_user", {})
+        profile = _get_profile_from_db("dev_user")
         return jsonify({"user": {**base_user, **profile}})
 
     token = auth_service.get_token_from_header()
@@ -124,7 +194,7 @@ def get_profile():
     try:
         user = auth_service.verify_token(token)
         user_id = _resolve_user_identifier(user)
-        profile = USER_PROFILE_STORE.get(user_id or "", {})
+        profile = _get_profile_from_db(user_id or "")
         return jsonify({"user": {**user, **profile}})
     except Exception as e:
         return jsonify({"error": str(e)}), 401
@@ -156,11 +226,109 @@ def update_profile():
     allowed_fields = {"name", "location", "bio", "email"}
     profile_updates = {k: v for k, v in data.items() if k in allowed_fields}
 
-    current_profile = USER_PROFILE_STORE.get(user_id, {})
+    current_profile = _get_profile_from_db(user_id)
     updated_profile = {**current_profile, **profile_updates}
-    USER_PROFILE_STORE[user_id] = updated_profile
+    _upsert_profile_in_db(user_id, updated_profile)
 
     return jsonify({**base_user, **updated_profile})
+
+
+@auth_bp.route("/api/auth/review-count", methods=["GET"])
+def get_user_review_count():
+    from src.core.auth import auth_service
+
+    if auth_service.dev_bypass:
+        user_id = "dev_user"
+    else:
+        token = auth_service.get_token_from_header()
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        try:
+            user = auth_service.verify_token(token)
+            user_id = _resolve_user_identifier(user)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+
+    if not user_id:
+        return jsonify({"count": 0})
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        use_postgres = bool(os.environ.get("DATABASE_URL"))
+        placeholder = "%s" if use_postgres else "?"
+        cursor.execute(
+            f"SELECT COUNT(*) FROM reviews WHERE user_id = {placeholder}",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if isinstance(row, dict):
+            count = row.get("count", 0)
+        else:
+            count = row[0] if row else 0
+        return jsonify({"count": count})
+    except Exception:
+        return jsonify({"count": 0})
+    finally:
+        conn.close()
+
+
+@auth_bp.route("/api/auth/reviews", methods=["GET"])
+def get_user_reviews():
+    from src.core.auth import auth_service
+
+    if auth_service.dev_bypass:
+        user_id = "dev_user"
+    else:
+        token = auth_service.get_token_from_header()
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        try:
+            user = auth_service.verify_token(token)
+            user_id = _resolve_user_identifier(user)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+
+    if not user_id:
+        return jsonify({"reviews": []})
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        use_postgres = bool(os.environ.get("DATABASE_URL"))
+        placeholder = "%s" if use_postgres else "?"
+        cursor.execute(
+            f"""SELECT r.id, r.course_id, r.rating, r.review, r.author_name, r.author_email, r.created_at, c.title
+                FROM reviews r
+                LEFT JOIN courses c ON r.course_id = c.id
+                WHERE r.user_id = {placeholder}
+                ORDER BY r.created_at DESC""",
+            (user_id,),
+        )
+        rows = cursor.fetchall()
+        reviews = []
+        for row in rows:
+            if isinstance(row, dict):
+                r = dict(row)
+                if r.get("created_at") and hasattr(r["created_at"], "isoformat"):
+                    r["created_at"] = r["created_at"].isoformat()
+                reviews.append(r)
+            else:
+                reviews.append(
+                    {
+                        "id": row[0],
+                        "course_id": row[1],
+                        "rating": row[2],
+                        "review": row[3],
+                        "author_name": row[4],
+                        "author_email": row[5],
+                        "created_at": str(row[6]) if row[6] else None,
+                        "course_title": row[7],
+                    }
+                )
+        return jsonify({"reviews": reviews})
+    finally:
+        conn.close()
 
 
 @auth_bp.route("/api/auth/signup", methods=["POST"])

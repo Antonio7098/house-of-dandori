@@ -8,10 +8,25 @@ import os
 
 from src.api.app import create_app
 from src.core.utils import parse_json_fields
-from src.models.database import get_db_connection
+from src.models.database import get_db_connection, DatabaseManager
 from src.services.rag_service import get_rag_service
 
 app = create_app()
+
+
+def ensure_tables():
+    """Create user_profiles and reviews tables if they don't exist."""
+    db = DatabaseManager()
+    try:
+        db.connect()
+        db.initialize_schema()
+    except Exception as e:
+        print(f"Schema init warning: {e}")
+    finally:
+        db.close()
+
+
+ensure_tables()
 
 
 def reindex_on_startup():
