@@ -1,5 +1,6 @@
 import base64
 import os
+from urllib.parse import urlsplit
 
 from flask import Flask, jsonify, make_response, render_template, request
 
@@ -19,16 +20,28 @@ def create_app():
     app.config["JSON_AS_ASCII"] = False
     app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB
 
+    def _normalize_origin(origin: str) -> str:
+        normalized = origin.strip().rstrip("/")
+        if "://" not in normalized:
+            return normalized
+        parsed = urlsplit(normalized)
+        if not parsed.scheme or not parsed.netloc:
+            return normalized
+        return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+
     allowed_origins = [
-        origin.strip()
+        _normalize_origin(origin)
         for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "*").split(",")
         if origin.strip()
     ] or ["*"]
 
     def _resolve_origin(request_origin: str | None) -> str | None:
+        normalized_request_origin = (
+            _normalize_origin(request_origin) if request_origin else None
+        )
         if "*" in allowed_origins:
             return request_origin or "*"
-        if request_origin and request_origin in allowed_origins:
+        if normalized_request_origin and normalized_request_origin in allowed_origins:
             return request_origin
         return None
 

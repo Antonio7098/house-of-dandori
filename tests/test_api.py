@@ -154,3 +154,23 @@ def test_chat_stream_sse(client):
     )
     assert response.status_code == 200
     assert response.content_type.startswith("text/event-stream")
+
+
+def test_cors_allows_origin_with_trailing_slash_env(monkeypatch, setup_test_db):
+    monkeypatch.setenv(
+        "CORS_ALLOWED_ORIGINS", "https://house-of-dandori.netlify.app/"
+    )
+    app = create_app()
+    app.config["TESTING"] = True
+
+    with app.test_client() as test_client:
+        response = test_client.options(
+            "/api/courses",
+            headers={"Origin": "https://house-of-dandori.netlify.app"},
+        )
+
+    assert response.status_code == 204
+    assert (
+        response.headers.get("Access-Control-Allow-Origin")
+        == "https://house-of-dandori.netlify.app"
+    )
