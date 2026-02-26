@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from dataclasses import dataclass
 from datetime import datetime
@@ -129,7 +130,8 @@ class SafetyService:
         report: Dict[str, float] = {}
         for attr, keywords in FALLBACK_KEYWORDS.items():
             for keyword in keywords:
-                if keyword in lowered:
+                pattern = r"\b{}\b".format(re.escape(keyword.lower()))
+                if re.search(pattern, lowered):
                     report[attr] = 1.0
                     break
         return report
