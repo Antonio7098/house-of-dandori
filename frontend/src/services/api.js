@@ -82,10 +82,10 @@ export const authApi = {
 };
 
 export const chatApi = {
-  sendMessage: async (message, history = []) => {
+  sendMessage: async (message, history = [], context = {}) => {
     return fetchWithAuth('/api/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, history }),
+      body: JSON.stringify({ message, history, ...context }),
     });
   },
   

@@ -8,9 +8,12 @@ import {
   Sparkles,
   Bot,
   User,
-  Loader2
+  Loader2,
+  Wand2,
+  Feather,
+  Moon
 } from 'lucide-react';
-import { useChatStore } from '../../stores/useStore';
+import { useChatStore, useUserStore } from '../../stores/useStore';
 import { chatApi } from '../../services/api';
 import { Button, Avatar } from '../ui';
 import CourseArtifact from './CourseArtifact';
@@ -47,10 +50,35 @@ const messageVariants = {
   },
 };
 
+const whimsyStatuses = [
+  'Brewing lavender tea for your ideas',
+  'Polishing constellation cards of curiosity',
+  'Tuning windchimes for serendipitous classes',
+  'Sketching moonlit schedules for you'
+];
+
+const moodBadges = ['Cosy Creativity', 'Weekend Wonders', 'Playful Rituals'];
+
+const welcomeNotes = [
+  {
+    title: 'Follow the fireflies',
+    body: 'Ask for classes by mood, element, or time of day—I will trail the glow and report back.'
+  },
+  {
+    title: 'Pack your satchel',
+    body: 'Mention budget, instructors you admire, or skills you wish to rekindle for tailored picks.'
+  },
+  {
+    title: 'Create a ritual',
+    body: 'Blend multiple interests—ceramics + woodland walks? I adore playful mashups.'
+  }
+];
+
 export default function ChatPanel() {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const [statusIndex, setStatusIndex] = useState(0);
   
   const { 
     isOpen, 
@@ -64,6 +92,7 @@ export default function ChatPanel() {
     artifacts,
     addArtifact,
   } = useChatStore();
+  const { user } = useUserStore();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -74,6 +103,15 @@ export default function ChatPanel() {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setStatusIndex((prev) => (prev + 1) % whimsyStatuses.length);
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  const currentStatus = whimsyStatuses[statusIndex];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,7 +124,16 @@ export default function ChatPanel() {
     setLoading(true);
 
     try {
-      const response = await chatApi.sendMessage(userMessage, messages);
+      const profileContext = {
+        ...(user?.name ? { name: user.name } : {}),
+        ...(user?.bio ? { bio: user.bio } : {}),
+      };
+
+      const response = await chatApi.sendMessage(
+        userMessage,
+        messages,
+        Object.keys(profileContext).length ? { profile: profileContext } : {}
+      );
       
       addMessage({ role: 'assistant', content: response.message });
       
@@ -135,14 +182,19 @@ export default function ChatPanel() {
             <header className={styles.header}>
               <div className={styles.headerLeft}>
                 <div className={styles.botAvatar}>
-                  <Sparkles size={20} />
+                  <Wand2 size={20} />
                 </div>
                 <div className={styles.headerText}>
                   <h2 className={styles.headerTitle}>Dandori Assistant</h2>
                   <span className={styles.headerStatus}>
                     <span className={styles.statusDot} />
-                    Ready to help
+                    {currentStatus}
                   </span>
+                  <div className={styles.badgeBar}>
+                    {moodBadges.map((badge) => (
+                      <span key={badge} className={styles.badge}>{badge}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
               
@@ -172,13 +224,28 @@ export default function ChatPanel() {
                       <Sparkles size={40} />
                     </div>
                     <h3 className={styles.welcomeTitle}>
-                      Welcome to Dandori
+                      Welcome to the Whimsy Wing
                     </h3>
                     <p className={styles.welcomeText}>
-                      I'm here to help you discover the perfect course for your journey of joy and wellbeing. Ask me anything!
+                      I’m your moonlit concierge for the School of Dandori. Tell me how you’d like to feel—rested, curious, or bold—and I’ll stitch together classes that match.
                     </p>
+
+                    <div className={styles.welcomeNotes}>
+                      {welcomeNotes.map((note) => (
+                        <div key={note.title} className={styles.welcomeNote}>
+                          <Feather size={16} />
+                          <div>
+                            <p className={styles.noteTitle}>{note.title}</p>
+                            <p className={styles.noteBody}>{note.body}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                     
                     <div className={styles.suggestions}>
+                      <p className={styles.suggestionLabel}>
+                        <Moon size={16} /> Enchanted prompts
+                      </p>
                       {suggestedPrompts.map((prompt, index) => (
                         <motion.button
                           key={index}
@@ -272,7 +339,7 @@ export default function ChatPanel() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about courses, locations, or your interests..."
+                  placeholder="Tell me the vibe you crave—budget, mood, skill, or secret wish..."
                   className={styles.input}
                   disabled={isLoading}
                 />
@@ -287,7 +354,10 @@ export default function ChatPanel() {
                 </Button>
               </div>
               <p className={styles.inputHint}>
-                Powered by Dandori AI • Your personal course discovery assistant
+                Whisper a detail or two and I’ll conjure options grounded in real Dandori courses, promise.
+              </p>
+              <p className={styles.inputCharm}>
+                Need inspo? Ask for “display(42)” or “graph neighbors for pottery” and I’ll fetch enchanted evidence.
               </p>
             </form>
           </motion.div>

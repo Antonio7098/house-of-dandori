@@ -1,4 +1,6 @@
 import os
+from typing import Any, Dict
+
 from flask import Blueprint, jsonify, request
 import requests
 
@@ -12,6 +14,11 @@ from src.core.errors import AuthenticationError, BadRequestError, handle_excepti
 from src.core.logging import api_logger
 
 auth_bp = Blueprint("auth", __name__)
+USER_PROFILE_STORE: Dict[str, Dict[str, Any]] = {}
+
+
+def _resolve_user_identifier(user: Dict[str, Any]) -> str | None:
+    return user.get("sub") or user.get("id") or user.get("email")
 
 
 @auth_bp.route("/api/auth/login", methods=["POST"])
@@ -106,7 +113,9 @@ def get_profile():
     from src.core.auth import auth_service
 
     if auth_service.dev_bypass:
-        return jsonify({"user": {"email": "dev@localhost", "id": "dev_user"}})
+        base_user = {"email": "dev@localhost", "id": "dev_user"}
+        profile = USER_PROFILE_STORE.get("dev_user", {})
+        return jsonify({"user": {**base_user, **profile}})
 
     token = auth_service.get_token_from_header()
     if not token:
@@ -114,9 +123,44 @@ def get_profile():
 
     try:
         user = auth_service.verify_token(token)
-        return jsonify({"user": user})
+        user_id = _resolve_user_identifier(user)
+        profile = USER_PROFILE_STORE.get(user_id or "", {})
+        return jsonify({"user": {**user, **profile}})
     except Exception as e:
         return jsonify({"error": str(e)}), 401
+
+
+@auth_bp.route("/api/auth/profile", methods=["PUT"])
+def update_profile():
+    from src.core.auth import auth_service
+
+    data = request.get_json(silent=True) or {}
+
+    if auth_service.dev_bypass:
+        base_user = {"email": "dev@localhost", "id": "dev_user"}
+        user_id = "dev_user"
+    else:
+        token = auth_service.get_token_from_header()
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+
+        try:
+            base_user = auth_service.verify_token(token)
+            user_id = _resolve_user_identifier(base_user)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+
+    if not user_id:
+        return jsonify({"error": "Unable to determine user"}), 400
+
+    allowed_fields = {"name", "location", "bio", "email"}
+    profile_updates = {k: v for k, v in data.items() if k in allowed_fields}
+
+    current_profile = USER_PROFILE_STORE.get(user_id, {})
+    updated_profile = {**current_profile, **profile_updates}
+    USER_PROFILE_STORE[user_id] = updated_profile
+
+    return jsonify({**base_user, **updated_profile})
 
 
 @auth_bp.route("/api/auth/signup", methods=["POST"])

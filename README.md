@@ -15,6 +15,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation
 - PDF upload and automatic course data extraction
 - Filtering by location and course type
 - GraphRAG hybrid retrieval (ChromaDB) with optional Neo4j adjacency traversal
+- Prompt + response safety enforcement using Google Perspective API with local keyword fallback
 
 ## Getting Started
 
@@ -146,6 +147,9 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 | `REINDEX_MAX_COURSES` | Limit number of courses indexed at startup (blank = all) | *(unset)* |
 | `CHAT_MODEL` | Model used by `/api/chat` tool-calling loop (OpenRouter/OpenAI compatible id) | `openai/gpt-4o-mini` |
 | `OPENROUTER_BASE_URL` | Override chat SDK base URL | `https://openrouter.ai/api/v1` |
+| `PERSPECTIVE_API_KEY` | API key for Google Perspective comment analyzer | *(unset)* |
+| `SAFETY_THRESHOLDS_PATH` | Override path to the JSON file containing INPUT/OUTPUT safety thresholds | `./assets/safety_thresholds.json` |
+| `SAFETY_LOG_DIR` | Directory where blocked prompt/output interactions are logged | `./logs` |
 
 #### Development / Debug
 | `DEV_BYPASS_AUTH` | Skip auth in development mode | `true` |
@@ -168,6 +172,13 @@ python scripts/ingest_pdfs.py /path/to/pdfs --api-url https://your-api-url
 > The rest of the GraphRAG tuning knobs (collection names, batch size, chunk cap, etc.) now ship with sensible in-code defaults, so no extra environment entries are needed unless you want to override them.
 >
 > **Startup behavior**: Auto-indexing on startup is now disabled. Use `POST /api/reindex` to trigger a one-time reindex, or enable via `REINDEX_ON_STARTUP=true` if you want the old behavior.
+
+### Content Safety Pipeline
+
+- The `/api/chat` endpoint now validates both **user prompts** and **model outputs** using Google Perspective.
+- Thresholds for each attribute (TOXICITY, IDENTITY_ATTACK, SEXUALLY_EXPLICIT, PROFANITY) live in `assets/safety_thresholds.json` and can be overridden via `SAFETY_THRESHOLDS_PATH`.
+- When the Perspective API is unreachable or no key is configured, the system falls back to lightweight keyword heuristics to avoid blocking all traffic.
+- Blocked prompts and responses are written to timestamped JSON lines in `SAFETY_LOG_DIR` to help audit risky interactions.
 
 ### GraphRAG Enrichment Overview
 

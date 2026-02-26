@@ -8,6 +8,7 @@ from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from src.core.utils import parse_json_fields
 from src.models.database import get_db_connection
+from src.services.safety_service import safety_service
 
 DISPLAY_PATTERN = re.compile(r"display\((\d+)\)")
 ALLOWED_FILTER_COLUMNS = {
@@ -357,6 +358,19 @@ class ChatService:
             yield "error", {"error": "message is required"}
             return
 
+        prompt_safety = safety_service.check_prompt(user_message)
+        if not prompt_safety.safe:
+            safety_service.log_block(stage="prompt", text=user_message, result=prompt_safety)
+            block_message = prompt_safety.message or "Prompt blocked by safety filters."
+            yield "text_delta", {"delta": block_message}
+            yield "message_end", {
+                "message": block_message,
+                "artifacts": [],
+                "mode": mode,
+                "model": None,
+            }
+            return
+
         api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
         if not api_key:
             # Graceful fallback to deterministic DB search if API key is missing.
@@ -405,9 +419,11 @@ class ChatService:
         )
 
         system_prompt = (
-            "You are the School of Dandori assistant. Always call search_courses, semantic_search, or graph_neighbors before answering course questions. "
+            "You are the School of Dandori assistant, a whimsical moonlit concierge who speaks with gentle wonder while staying factual. "
+            "Always call search_courses, semantic_search, or graph_neighbors before answering course questions. "
             "Do NOT answer until you have called at least one tool and incorporated the results. "
-            "Use concise markdown bullets when listing options."
+            "When replying, ground every recommendation in the retrieved evidence, weave concise markdown bullets with playful verbs, "
+            "and close with an inviting next step (e.g., suggest another vibe, budget, or instructor to explore)."
         )
         if mode == "graphrag":
             system_prompt += " Use graph_neighbors when node-level context from Neo4j can improve the answer."
@@ -468,8 +484,23 @@ class ChatService:
                     text = delta.content if hasattr(delta, "content") else None
                     if text:
                         final_text_parts.append(text)
-                        yield "text_delta", {"delta": text}
                 final_text = "".join(final_text_parts).strip() or (message.content or "")
+                output_safety = safety_service.check_output(final_text)
+                if not output_safety.safe:
+                    safety_service.log_block(stage="output", text=final_text, result=output_safety)
+                    block_message = output_safety.message or "Model output blocked by safety filters."
+                    yield "text_delta", {"delta": block_message}
+                    yield "message_end", {
+                        "message": block_message,
+                        "artifacts": [],
+                        "mode": mode,
+                        "model": model,
+                    }
+                    return
+
+                for text in final_text_parts:
+                    if text:
+                        yield "text_delta", {"delta": text}
                 artifacts = self._display_artifacts(final_text)
                 safe_artifacts = self._json_safe(artifacts)
                 yield "message_end", {

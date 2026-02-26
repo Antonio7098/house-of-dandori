@@ -1,0 +1,14 @@
+{
+  "INPUT": {
+    "TOXICITY": 0.65,
+    "IDENTITY_ATTACK": 0.45,
+    "SEXUALLY_EXPLICIT": 0.50,
+    "PROFANITY": 0.55
+  },
+  "OUTPUT": {
+    "TOXICITY": 0.40,
+    "IDENTITY_ATTACK": 0.30,
+    "SEXUALLY_EXPLICIT": 0.35,
+    "PROFANITY": 0.40
+  }
+}

@@ -73,6 +73,22 @@
   color: var(--text-tertiary);
 }
 
+.badgeBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.badge {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-cream-50);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  padding: 2px 8px;
+}
+
 .statusDot {
   width: 6px;
   height: 6px;
@@ -169,12 +185,52 @@
   margin: 0 0 var(--space-6);
 }
 
+.welcomeNotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: var(--space-5);
+}
+
+.welcomeNote {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--border-light);
+}
+
+.noteTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.noteBody {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
 .suggestions {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   width: 100%;
   max-width: 300px;
+}
+
+.suggestionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2);
 }
 
 .suggestionChip {
@@ -359,6 +415,14 @@
   color: var(--text-tertiary);
   text-align: center;
   margin: var(--space-2) 0 0;
+}
+
+.inputCharm {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: var(--space-2) auto 0;
+  max-width: 360px;
 }
 
 .spinner {

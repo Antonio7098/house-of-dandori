@@ -10,6 +10,12 @@ export const useUserStore = create(
       savedCourses: [],
       
       setUser: (user) => set({ user, isAuthenticated: !!user }),
+
+      updateUserProfile: (updates) =>
+        set((state) => {
+          const nextUser = { ...(state.user || {}), ...updates };
+          return { user: nextUser, isAuthenticated: !!nextUser };
+        }),
       
       logout: () => {
         localStorage.removeItem('dandori-token');
