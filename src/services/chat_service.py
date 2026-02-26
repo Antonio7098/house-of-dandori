@@ -75,25 +75,33 @@ class ChatService:
             q = f"%{query}%"
             if placeholder == "%s":
                 where_parts.append(
-                    "(" + " OR ".join([
-                        "title ILIKE %s",
-                        "class_id ILIKE %s",
-                        "description ILIKE %s",
-                        "instructor ILIKE %s",
-                        "location ILIKE %s",
-                        "course_type ILIKE %s",
-                    ]) + ")"
+                    "("
+                    + " OR ".join(
+                        [
+                            "title ILIKE %s",
+                            "class_id ILIKE %s",
+                            "description ILIKE %s",
+                            "instructor ILIKE %s",
+                            "location ILIKE %s",
+                            "course_type ILIKE %s",
+                        ]
+                    )
+                    + ")"
                 )
             else:
                 where_parts.append(
-                    "(" + " OR ".join([
-                        "title LIKE ?",
-                        "class_id LIKE ?",
-                        "description LIKE ?",
-                        "instructor LIKE ?",
-                        "location LIKE ?",
-                        "course_type LIKE ?",
-                    ]) + ")"
+                    "("
+                    + " OR ".join(
+                        [
+                            "title LIKE ?",
+                            "class_id LIKE ?",
+                            "description LIKE ?",
+                            "instructor LIKE ?",
+                            "location LIKE ?",
+                            "course_type LIKE ?",
+                        ]
+                    )
+                    + ")"
                 )
             params.extend([q, q, q, q, q, q])
 
@@ -124,7 +132,9 @@ class ChatService:
         total = (
             count_row.get("count", 0)
             if hasattr(count_row, "get")
-            else count_row[0] if count_row else 0
+            else count_row[0]
+            if count_row
+            else 0
         )
 
         cursor.execute(sql, [*params, limit, offset])
@@ -132,22 +142,40 @@ class ChatService:
         conn.close()
         return {"courses": rows, "count": total, "limit": limit, "offset": offset}
 
-    def _semantic_search(self, query: str, limit: int = 5, provider: Optional[str] = None) -> Dict[str, Any]:
-        if self._rag_service is None or (provider and provider != getattr(self._rag_service, "provider_name", None)):
-            from src.services.rag_service import get_rag_service
-            self._rag_service = get_rag_service(provider)
+    def _semantic_search(
+        self, query: str, limit: int = 5, provider: Optional[str] = None
+    ) -> Dict[str, Any]:
+        try:
+            if self._rag_service is None or (
+                provider
+                and provider != getattr(self._rag_service, "provider_name", None)
+            ):
+                from src.services.rag_service import get_rag_service
 
-        results = self._rag_service.search(query, n_results=max(1, min(int(limit), 20)))
-        return results
+                self._rag_service = get_rag_service(provider)
 
-    def _graph_neighbors(self, value: str, limit: int = 25, provider: Optional[str] = None) -> Dict[str, Any]:
+            results = self._rag_service.search(
+                query, n_results=max(1, min(int(limit), 20))
+            )
+            return results
+        except Exception as exc:
+            return {"error": f"semantic_search unavailable: {exc}"}
+
+    def _graph_neighbors(
+        self, value: str, limit: int = 25, provider: Optional[str] = None
+    ) -> Dict[str, Any]:
         if self._graph_rag_service is None:
             from src.services.graph_rag_service import get_graph_rag_service
-            self._graph_rag_service = get_graph_rag_service(provider or os.environ.get("GRAPH_RAG_VECTOR_PROVIDER", "chroma"))
+
+            self._graph_rag_service = get_graph_rag_service(
+                provider or os.environ.get("GRAPH_RAG_VECTOR_PROVIDER", "chroma")
+            )
 
         if not getattr(self._graph_rag_service, "neo4j_enabled", False):
             return {"error": "Neo4j neighbors are disabled"}
-        return self._graph_rag_service.graph_neighbors(value=value, limit=max(1, min(int(limit), 100)))
+        return self._graph_rag_service.graph_neighbors(
+            value=value, limit=max(1, min(int(limit), 100))
+        )
 
     def _initial_context(self, query: str, mode: str) -> str:
         snippets: List[str] = []
@@ -203,7 +231,12 @@ class ChatService:
         conn.close()
         cmap = {c["id"]: c for c in courses if "id" in c}
         return [
-            {"type": "course", "course_id": cid, "display": f"display({cid})", "course": cmap.get(cid)}
+            {
+                "type": "course",
+                "course_id": cid,
+                "display": f"display({cid})",
+                "course": cmap.get(cid),
+            }
             for cid in ids
         ]
 
@@ -230,7 +263,9 @@ class ChatService:
                 lines.append(f"   Learning objectives: {snippet}")
             if course.get("description"):
                 desc = str(course.get("description"))
-                lines.append(f"   Description: {desc[:240]}" + ("…" if len(desc) > 240 else ""))
+                lines.append(
+                    f"   Description: {desc[:240]}" + ("…" if len(desc) > 240 else "")
+                )
         lines.append(
             "Use the specific details above to answer the user's request; focus only on the course(s) they asked about."
         )
@@ -312,7 +347,11 @@ class ChatService:
                             "type": "object",
                             "properties": {
                                 "value": {"type": "string"},
-                                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                                "limit": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                },
                                 "provider": {"type": "string"},
                             },
                             "required": ["value"],
@@ -348,9 +387,13 @@ class ChatService:
             )
         return {"error": f"Unknown tool: {name}"}
 
-    def stream_chat(self, payload: Dict[str, Any]) -> Generator[Tuple[str, Dict[str, Any]], None, None]:
+    def stream_chat(
+        self, payload: Dict[str, Any]
+    ) -> Generator[Tuple[str, Dict[str, Any]], None, None]:
         mode = "graphrag" if payload.get("mode") == "graphrag" else "standard"
-        model = payload.get("model") or os.environ.get("CHAT_MODEL", "openai/gpt-4o-mini")
+        model = payload.get("model") or os.environ.get(
+            "CHAT_MODEL", "openai/gpt-4o-mini"
+        )
         user_message = (payload.get("message") or "").strip()
         history = payload.get("history") or []
 
@@ -360,21 +403,30 @@ class ChatService:
 
         prompt_safety = safety_service.check_prompt(user_message)
         if not prompt_safety.safe:
-            safety_service.log_block(stage="prompt", text=user_message, result=prompt_safety)
+            safety_service.log_block(
+                stage="prompt", text=user_message, result=prompt_safety
+            )
             block_message = prompt_safety.message or "Prompt blocked by safety filters."
             yield "text_delta", {"delta": block_message}
-            yield "message_end", {
-                "message": block_message,
-                "artifacts": [],
-                "mode": mode,
-                "model": None,
-            }
+            yield (
+                "message_end",
+                {
+                    "message": block_message,
+                    "artifacts": [],
+                    "mode": mode,
+                    "model": None,
+                },
+            )
             return
 
-        api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get(
+            "OPENAI_API_KEY"
+        )
         if not api_key:
             # Graceful fallback to deterministic DB search if API key is missing.
-            quick = self._search_courses(query=user_message, filters=payload.get("filters") or {}, limit=5)
+            quick = self._search_courses(
+                query=user_message, filters=payload.get("filters") or {}, limit=5
+            )
             courses = quick.get("courses", [])
             if not courses:
                 text = "I can still run a local search, but no matching courses were found."
@@ -383,9 +435,15 @@ class ChatService:
                     f"- {c.get('title') or 'Course'} (Instructor: {c.get('instructor') or 'TBD'})"
                     for c in courses
                 ]
-                text = "I can still search courses locally. Here are a few options:\n" + "\n".join(bullet_lines)
+                text = (
+                    "I can still search courses locally. Here are a few options:\n"
+                    + "\n".join(bullet_lines)
+                )
             yield "text_delta", {"delta": text}
-            yield "message_end", {"message": text, "artifacts": [], "mode": mode, "model": None}
+            yield (
+                "message_end",
+                {"message": text, "artifacts": [], "mode": mode, "model": None},
+            )
             return
 
         try:
@@ -395,9 +453,7 @@ class ChatService:
                 query=user_message, filters=payload.get("filters") or {}, limit=5
             )
             ids = [
-                c.get("id")
-                for c in quick.get("courses", [])
-                if c.get("id") is not None
+                c.get("id") for c in quick.get("courses", []) if c.get("id") is not None
             ]
             text = (
                 "The OpenAI SDK is not installed; using local search only. "
@@ -405,22 +461,28 @@ class ChatService:
             )
             yield "text_delta", {"delta": text}
             artifacts = self._display_artifacts(text)
-            yield "message_end", {
-                "message": text,
-                "artifacts": artifacts,
-                "mode": mode,
-                "model": None,
-            }
+            yield (
+                "message_end",
+                {
+                    "message": text,
+                    "artifacts": artifacts,
+                    "mode": mode,
+                    "model": None,
+                },
+            )
             return
 
         client = OpenAI(
             api_key=api_key,
-            base_url=os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+            base_url=os.environ.get(
+                "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+            ),
         )
 
         system_prompt = (
             "You are the School of Dandori assistant, a whimsical moonlit concierge who speaks with gentle wonder while staying factual. "
-            "Always call search_courses, semantic_search, or graph_neighbors before answering course questions. "
+            "For every user query about courses, ALWAYS call BOTH search_courses (normal search) AND semantic_search to get the best results. "
+            "Combine insights from both searches before answering. "
             "Do NOT answer until you have called at least one tool and incorporated the results. "
             "When replying, ground every recommendation in the retrieved evidence, weave concise markdown bullets with playful verbs, "
             "and close with an inviting next step (e.g., suggest another vibe, budget, or instructor to explore)."
@@ -431,7 +493,12 @@ class ChatService:
         messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
         context_blob = self._initial_context(user_message, mode)
         if context_blob:
-            messages.append({"role": "system", "content": "Initial Dandori context:\n" + context_blob})
+            messages.append(
+                {
+                    "role": "system",
+                    "content": "Initial Dandori context:\n" + context_blob,
+                }
+            )
         for item in history:
             role = item.get("role")
             content = item.get("content")
@@ -459,17 +526,21 @@ class ChatService:
             if not tool_calls:
                 if not has_called_tool and missed_tool_attempts < 2:
                     missed_tool_attempts += 1
-                    messages.append({"role": "assistant", "content": message.content or ""})
+                    messages.append(
+                        {"role": "assistant", "content": message.content or ""}
+                    )
                     reminder = (
-                        "You must call either search_courses, semantic_search, or graph_neighbors before answering. "
-                        "Return the tool call JSON arguments only."
+                        "You must call BOTH search_courses (normal search) AND semantic_search for every course question. "
+                        "Combine results from both before answering. Return the tool call JSON arguments only."
                     )
                     messages.append({"role": "system", "content": reminder})
                     continue
                 # Stream a final narrative pass so the UI receives incremental tokens.
                 messages.append({"role": "assistant", "content": message.content or ""})
                 for ctx in tool_context_messages:
-                    messages.append({"role": "system", "content": "Tool context:\n" + ctx})
+                    messages.append(
+                        {"role": "system", "content": "Tool context:\n" + ctx}
+                    )
                 stream = client.chat.completions.create(
                     model=model,
                     messages=messages,
@@ -484,18 +555,28 @@ class ChatService:
                     text = delta.content if hasattr(delta, "content") else None
                     if text:
                         final_text_parts.append(text)
-                final_text = "".join(final_text_parts).strip() or (message.content or "")
+                final_text = "".join(final_text_parts).strip() or (
+                    message.content or ""
+                )
                 output_safety = safety_service.check_output(final_text)
                 if not output_safety.safe:
-                    safety_service.log_block(stage="output", text=final_text, result=output_safety)
-                    block_message = output_safety.message or "Model output blocked by safety filters."
+                    safety_service.log_block(
+                        stage="output", text=final_text, result=output_safety
+                    )
+                    block_message = (
+                        output_safety.message
+                        or "Model output blocked by safety filters."
+                    )
                     yield "text_delta", {"delta": block_message}
-                    yield "message_end", {
-                        "message": block_message,
-                        "artifacts": [],
-                        "mode": mode,
-                        "model": model,
-                    }
+                    yield (
+                        "message_end",
+                        {
+                            "message": block_message,
+                            "artifacts": [],
+                            "mode": mode,
+                            "model": model,
+                        },
+                    )
                     return
 
                 for text in final_text_parts:
@@ -503,12 +584,15 @@ class ChatService:
                         yield "text_delta", {"delta": text}
                 artifacts = self._display_artifacts(final_text)
                 safe_artifacts = self._json_safe(artifacts)
-                yield "message_end", {
-                    "message": final_text,
-                    "artifacts": safe_artifacts,
-                    "mode": mode,
-                    "model": model,
-                }
+                yield (
+                    "message_end",
+                    {
+                        "message": final_text,
+                        "artifacts": safe_artifacts,
+                        "mode": mode,
+                        "model": model,
+                    },
+                )
                 return
 
             messages.append(
@@ -528,13 +612,19 @@ class ChatService:
                     args = json.loads(raw_args)
                 except Exception:
                     args = {}
-                yield "tool_call", {
-                    "id": tool_call.id,
-                    "name": name,
-                    "arguments": args,
-                    "status": "running",
-                }
-                result = self._run_tool(name, args, mode)
+                yield (
+                    "tool_call",
+                    {
+                        "id": tool_call.id,
+                        "name": name,
+                        "arguments": args,
+                        "status": "running",
+                    },
+                )
+                try:
+                    result = self._run_tool(name, args, mode)
+                except Exception as exc:
+                    result = {"error": f"{name} failed: {exc}"}
                 safe_result = self._json_safe(result)
                 summary: Optional[str] = None
                 if name == "search_courses":
@@ -545,13 +635,18 @@ class ChatService:
                     summary = self._format_graph_results(safe_result)
                 if summary:
                     tool_context_messages.append(summary)
-                yield "tool_result", {
-                    "id": tool_call.id,
-                    "name": name,
-                    "arguments": args,
-                    "status": "completed" if not safe_result.get("error") else "error",
-                    "result": safe_result,
-                }
+                yield (
+                    "tool_result",
+                    {
+                        "id": tool_call.id,
+                        "name": name,
+                        "arguments": args,
+                        "status": "completed"
+                        if not safe_result.get("error")
+                        else "error",
+                        "result": safe_result,
+                    },
+                )
                 messages.append(
                     {
                         "role": "tool",
@@ -560,7 +655,9 @@ class ChatService:
                         "content": json.dumps(safe_result),
                     }
                 )
-        fallback = self._search_courses(query=user_message, filters=payload.get("filters") or {}, limit=5)
+        fallback = self._search_courses(
+            query=user_message, filters=payload.get("filters") or {}, limit=5
+        )
         courses = fallback.get("courses", [])
         if courses:
             lines = [
@@ -574,11 +671,15 @@ class ChatService:
         else:
             text = "I wasn't able to finish that reasoning loop, and no local results were found. Please try again with more detail."
         yield "text_delta", {"delta": text}
-        yield "message_end", {
-            "message": text,
-            "artifacts": [],
-            "mode": mode,
-            "model": model,
-        }
+        yield (
+            "message_end",
+            {
+                "message": text,
+                "artifacts": [],
+                "mode": mode,
+                "model": model,
+            },
+        )
+
 
 chat_service = ChatService()
